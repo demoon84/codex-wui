@@ -1,0 +1,254 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Dracula Theme - https://draculatheme.com/contribute */
+  --color-bg-deep: #282a36;
+  /* Background */
+  --color-bg-sidebar: #21222c;
+  /* Current Line darker */
+  --color-bg-card: #44475a;
+  /* Current Line */
+  --color-bg-hover: #6272a4;
+  /* Comment */
+  --color-bg-input: #21222c;
+  /* Darker bg */
+  --color-text-primary: #f8f8f2;
+  /* Foreground */
+  --color-text-secondary: #6272a4;
+  /* Comment */
+  --color-text-muted: #6272a4;
+  /* Comment */
+  --color-primary: #50fa7b;
+  /* Green */
+  --color-primary-dark: #3ad35a;
+  /* Green darker */
+  --color-border: #44475a;
+  /* Current Line */
+  --color-border-subtle: #383a46;
+  /* Subtle border */
+
+  /* Dracula Accent Colors */
+  --dracula-cyan: #8be9fd;
+  --dracula-green: #50fa7b;
+  --dracula-orange: #ffb86c;
+  --dracula-pink: #ff79c6;
+  --dracula-purple: #bd93f9;
+  --dracula-red: #ff5555;
+  --dracula-yellow: #f1fa8c;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-bg-deep);
+  color: var(--color-text-primary);
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  font-size: 12px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+.font-mono,
+[class*="font-mono"],
+code,
+pre {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+}
+
+/* Utility class for preventing text selection */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Custom Scrollbar - Theme aware */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  opacity: 0.5;
+  border-radius: 100px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-dark);
+}
+
+/* Glass panel - Dracula Theme */
+.glass-panel {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.glass-panel-hover {
+  transition: all 0.2s ease;
+}
+
+.glass-panel-hover:hover {
+  border-color: var(--dracula-purple);
+  background: var(--color-bg-hover);
+}
+
+/* Electron window drag region */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: 100;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* Message typing indicator */
+@keyframes blink {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.typing-cursor {
+  animation: blink 1s infinite;
+}
+
+/* Code styling - Dracula */
+code {
+  font-family: Menlo, Monaco, 'Courier New', monospace;
+  background: #21222c;
+}
+
+/* Input dark theme - Dracula */
+.input-dark {
+  background: var(--color-bg-input);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.input-dark::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input-dark:focus {
+  border-color: var(--dracula-purple);
+  outline: none;
+}
+
+/* Dracula accent utilities */
+.text-dracula-cyan {
+  color: var(--dracula-cyan);
+}
+
+.text-dracula-green {
+  color: var(--dracula-green);
+}
+
+.text-dracula-orange {
+  color: var(--dracula-orange);
+}
+
+.text-dracula-pink {
+  color: var(--dracula-pink);
+}
+
+.text-dracula-purple {
+  color: var(--dracula-purple);
+}
+
+.text-dracula-red {
+  color: var(--dracula-red);
+}
+
+.text-dracula-yellow {
+  color: var(--dracula-yellow);
+}
+
+.bg-dracula-cyan {
+  background-color: var(--dracula-cyan);
+}
+
+.bg-dracula-green {
+  background-color: var(--dracula-green);
+}
+
+.bg-dracula-orange {
+  background-color: var(--dracula-orange);
+}
+
+.bg-dracula-pink {
+  background-color: var(--dracula-pink);
+}
+
+.bg-dracula-purple {
+  background-color: var(--dracula-purple);
+}
+
+.bg-dracula-red {
+  background-color: var(--dracula-red);
+}
+
+.bg-dracula-yellow {
+  background-color: var(--dracula-yellow);
+}
+
+/* Override prose code styles for theme compatibility */
+.prose code {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+.prose pre {
+  background-color: transparent !important;
+  color: inherit !important;
+}
