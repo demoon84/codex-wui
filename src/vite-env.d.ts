@@ -4,6 +4,18 @@
 // See electron/preload.ts for the source of truth
 
 type ModelMode = 'planning' | 'fast'
+type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
+type ApprovalPolicy = 'untrusted' | 'on-failure' | 'on-request' | 'never'
+
+interface CliOptions {
+    profile: string
+    sandbox: SandboxMode
+    askForApproval: ApprovalPolicy
+    skipGitRepoCheck: boolean
+    cwdOverride: string
+    extraArgs: string
+    enableWebSearch: boolean
+}
 
 interface DbMessage {
     id: string
@@ -36,17 +48,24 @@ interface FileSearchResult {
     isDirectory: boolean
 }
 
-interface GoogleUser {
+interface CodexUser {
     id: string
     email: string
     name: string
     picture: string
+    authMode?: string
+    authProvider?: string
 }
 
 interface Window {
-    geminiApi: {
+    codexApi: {
         setMode: (mode: ModelMode) => Promise<ModelMode>
         getMode: () => Promise<ModelMode>
+        getModels: () => Promise<Array<{ id: string; name: string; description: string }>>
+        getModel: () => Promise<string>
+        setModel: (modelId: string) => Promise<string>
+        setCliOptions: (options: Partial<CliOptions>) => Promise<CliOptions>
+        getCliOptions: () => Promise<CliOptions>
         setYoloMode: (enabled: boolean) => Promise<boolean>
         getYoloMode: () => Promise<boolean>
         // Codex CLI Installation
@@ -56,7 +75,7 @@ interface Window {
         initAcp: () => Promise<{ success: boolean; error?: string }>
         openWorkspace: () => Promise<{ path: string; name: string } | null>
         switchWorkspace: (workspaceId: string, cwd: string) => Promise<{ success: boolean; sessionId?: string; error?: string }>
-        streamGemini: (prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<void>
+        streamCodex: (prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<void>
         cancelPrompt: () => Promise<{ success: boolean; error?: string }>
         updateTitleBarOverlay: (color: string, symbolColor: string) => Promise<{ success: boolean; error?: string }>
         onStreamToken: (callback: (token: string) => void) => void
@@ -84,15 +103,17 @@ interface Window {
         searchFiles: (workspacePath: string, query: string) => Promise<FileSearchResult[]>
         readFileContent: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
         // Auth API
-        googleLogin: () => Promise<{ success: boolean; user?: GoogleUser; error?: string }>
-        googleLogout: () => Promise<{ success: boolean; error?: string }>
-        getUser: () => Promise<GoogleUser | null>
+        codexLogin: (method?: 'browser' | 'device-auth' | 'api-key', apiKey?: string) => Promise<{ success: boolean; user?: CodexUser; error?: string }>
+        codexLogout: () => Promise<{ success: boolean; error?: string }>
+        codexLoginMethods: () => Promise<{ methods: Array<{ id: 'browser' | 'device-auth' | 'api-key'; label: string }> }>
+        getUser: () => Promise<CodexUser | null>
         // File System API
         writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
         listDirectory: (dirPath: string) => Promise<{ success: boolean; entries?: DirectoryEntry[]; error?: string }>
         fileExists: (filePath: string) => Promise<boolean>
         // Terminal API
         runCommand: (command: string, cwd: string) => Promise<CommandResult>
+        runCodexCommand: (subcommand: string, args: string[], cwd?: string) => Promise<{ success: boolean; stdout: string; stderr: string; exitCode: number; error?: string }>
         killCommand: (commandId: string) => Promise<{ success: boolean; error?: string }>
         onCommandOutput: (callback: (data: CommandOutput) => void) => void
         // Web Search API

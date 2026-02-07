@@ -91,8 +91,8 @@ export function applyTheme(theme: Theme): void {
     localStorage.setItem('selected-theme', theme.id)
 
     // Update Windows titleBarOverlay color
-    if (window.geminiApi?.updateTitleBarOverlay) {
-        window.geminiApi.updateTitleBarOverlay(theme.colors.bgSidebar, theme.colors.textSecondary)
+    if (window.codexApi?.updateTitleBarOverlay) {
+        window.codexApi.updateTitleBarOverlay(theme.colors.bgSidebar, theme.colors.textSecondary)
     }
 }
 

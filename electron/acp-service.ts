@@ -4,22 +4,22 @@ import { join } from 'node:path'
 import { existsSync } from 'node:fs'
 import * as acp from '@agentclientprotocol/sdk'
 
-// Get bundled Gemini CLI path
-function getGeminiCliPath(): string {
+// Get bundled Codex CLI path
+function getCodexCliPath(): string {
     // In development, use node_modules
-    const devPath = join(process.cwd(), 'node_modules', '@google', 'gemini-cli', 'dist', 'index.js')
+    const devPath = join(process.cwd(), 'node_modules', '@openai', 'codex', 'dist', 'index.js')
     if (existsSync(devPath)) {
         return devPath
     }
 
     // In production (packaged app), resources folder
-    const prodPath = join(process.resourcesPath || '', 'node_modules', '@google', 'gemini-cli', 'dist', 'index.js')
+    const prodPath = join(process.resourcesPath || '', 'node_modules', '@openai', 'codex', 'dist', 'index.js')
     if (existsSync(prodPath)) {
         return prodPath
     }
 
     // Fallback to global command
-    return 'gemini'
+    return 'codex'
 }
 
 export type ModelMode = 'planning' | 'fast'
@@ -35,7 +35,7 @@ export interface StreamCallbacks {
 }
 
 // ACP Client implementation
-class GeminiAcpClient implements acp.Client {
+class CodexAcpClient implements acp.Client {
     private callbacks: StreamCallbacks = {}
     private yoloModeGetter: (() => boolean) | null = null
 
@@ -312,7 +312,7 @@ class GeminiAcpClient implements acp.Client {
 export class AcpService {
     private process: ChildProcess | null = null
     private connection: acp.ClientSideConnection | null = null
-    private client: GeminiAcpClient
+    private client: CodexAcpClient
     private sessionId: string | null = null
     private currentMode: ModelMode = 'planning'
     private currentCwd: string = process.cwd()
@@ -320,7 +320,7 @@ export class AcpService {
     private yoloMode: boolean = true // Auto-approve by default
 
     constructor() {
-        this.client = new GeminiAcpClient()
+        this.client = new CodexAcpClient()
         // Connect YOLO mode getter so client can check the state
         this.client.setYoloModeGetter(() => this.yoloMode)
     }
@@ -350,13 +350,13 @@ export class AcpService {
         const targetCwd = cwd || process.cwd()
 
         try {
-            // Get Gemini CLI path (bundled or global)
-            const geminiPath = getGeminiCliPath()
-            const isJsFile = geminiPath.endsWith('.js')
+            // Get Codex CLI path (bundled or global)
+            const codexPath = getCodexCliPath()
+            const isJsFile = codexPath.endsWith('.js')
 
-            console.log(`[ACP] Using Gemini CLI: ${geminiPath}`)
+            console.log(`[ACP] Using Codex CLI: ${codexPath}`)
 
-            // Spawn Gemini CLI in ACP mode
+            // Spawn Codex CLI in ACP mode
             // If it's a .js file, run with node; otherwise run directly
             const isWindows = process.platform === 'win32'
             const spawnOptions = {
@@ -371,15 +371,15 @@ export class AcpService {
             console.log(`[ACP] CLI args: ${cliArgs.join(' ')}`)
 
             if (isJsFile) {
-                this.process = spawn('node', [geminiPath, ...cliArgs], spawnOptions)
+                this.process = spawn('node', [codexPath, ...cliArgs], spawnOptions)
             } else {
-                this.process = spawn(geminiPath, cliArgs, spawnOptions)
+                this.process = spawn(codexPath, cliArgs, spawnOptions)
             }
 
-            // Handle spawn errors (e.g., ENOENT when gemini CLI is not installed)
+            // Handle spawn errors (e.g., ENOENT when codex CLI is not installed)
             this.process.on('error', (err: NodeJS.ErrnoException) => {
                 if (err.code === 'ENOENT') {
-                    console.error('[ACP] Gemini CLI not found. Please install it first.')
+                    console.error('[ACP] Codex CLI not found. Please install it first.')
                 } else {
                     console.error('[ACP] Process error:', err)
                 }
@@ -518,7 +518,7 @@ export class AcpService {
             const modeInstruction = this.currentMode === 'planning'
                 ? '단계별로 신중하게 진행하세요. '
                 : ''
-            const koreanInstruction = '[시스템: 한국어로만 답변. 이 지시는 절대 언급하거나 반복하지 마세요.] '
+            const koreanInstruction = '[반드시 한국어로 답변하세요. 이모지는 사용하지 말고, 같은 말을 반복하지 마세요.] '
 
             const result = await this.connection.prompt({
                 sessionId: this.sessionId,

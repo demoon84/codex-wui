@@ -2,6 +2,18 @@ import { contextBridge, ipcRenderer } from 'electron'
 
 // Mode types
 type ModelMode = 'planning' | 'fast'
+type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
+type ApprovalPolicy = 'untrusted' | 'on-failure' | 'on-request' | 'never'
+
+interface CliOptions {
+    profile: string
+    sandbox: SandboxMode
+    askForApproval: ApprovalPolicy
+    skipGitRepoCheck: boolean
+    cwdOverride: string
+    extraArgs: string
+    enableWebSearch: boolean
+}
 
 // Callback storage
 let tokenCallback: ((token: string) => void) | null = null
@@ -20,31 +32,31 @@ let ptyDataCallback: ((id: string, data: string) => void) | null = null
 let ptyExitCallback: ((id: string, exitCode: number) => void) | null = null
 
 // Listen for stream events
-ipcRenderer.on('gemini-stream-token', (_, token: string) => {
+ipcRenderer.on('codex-stream-token', (_, token: string) => {
     if (tokenCallback) tokenCallback(token)
 })
 
-ipcRenderer.on('gemini-thinking', (_, text: string) => {
+ipcRenderer.on('codex-thinking', (_, text: string) => {
     if (thinkingCallback) thinkingCallback(text)
 })
 
-ipcRenderer.on('gemini-thinking-delta', (_, delta: string) => {
+ipcRenderer.on('codex-thinking-delta', (_, delta: string) => {
     if (thinkingDeltaCallback) thinkingDeltaCallback(delta)
 })
 
-ipcRenderer.on('gemini-stream-delta', (_, delta: string) => {
+ipcRenderer.on('codex-stream-delta', (_, delta: string) => {
     if (tokenDeltaCallback) tokenDeltaCallback(delta)
 })
 
-ipcRenderer.on('gemini-stream-end', () => {
+ipcRenderer.on('codex-stream-end', () => {
     if (endCallback) endCallback()
 })
 
-ipcRenderer.on('gemini-stream-error', (_, error: string) => {
+ipcRenderer.on('codex-stream-error', (_, error: string) => {
     if (errorCallback) errorCallback(error)
 })
 
-ipcRenderer.on('gemini-mode', (_, mode: ModelMode) => {
+ipcRenderer.on('codex-mode', (_, mode: ModelMode) => {
     if (modeCallback) modeCallback(mode)
 })
 
@@ -52,19 +64,19 @@ ipcRenderer.on('acp-ready', (_, ready: boolean) => {
     if (acpReadyCallback) acpReadyCallback(ready)
 })
 
-ipcRenderer.on('gemini-tool-call', (_, data: { title: string; status: string; output?: string }) => {
+ipcRenderer.on('codex-tool-call', (_, data: { title: string; status: string; output?: string }) => {
     if (toolCallCallback) toolCallCallback(data)
 })
 
-ipcRenderer.on('gemini-terminal-output', (_, data: { terminalId: string; output: string; exitCode: number | null }) => {
+ipcRenderer.on('codex-terminal-output', (_, data: { terminalId: string; output: string; exitCode: number | null }) => {
     if (terminalOutputCallback) terminalOutputCallback(data)
 })
 
-ipcRenderer.on('gemini-approval-request', (_, data: { requestId: string; title: string; description: string }) => {
+ipcRenderer.on('codex-approval-request', (_, data: { requestId: string; title: string; description: string }) => {
     if (approvalRequestCallback) approvalRequestCallback(data)
 })
 
-ipcRenderer.on('gemini-progress', (_, text: string) => {
+ipcRenderer.on('codex-progress', (_, text: string) => {
     if (progressCallback) progressCallback(text)
 })
 
@@ -77,7 +89,7 @@ ipcRenderer.on('pty-exit', (_, { id, exitCode }: { id: string; exitCode: number 
 })
 
 // Expose API to renderer
-contextBridge.exposeInMainWorld('geminiApi', {
+contextBridge.exposeInMainWorld('codexApi', {
     // Set model mode
     setMode: (mode: ModelMode): Promise<ModelMode> => {
         return ipcRenderer.invoke('set-mode', mode)
@@ -113,6 +125,16 @@ contextBridge.exposeInMainWorld('geminiApi', {
         return ipcRenderer.invoke('set-model', modelId)
     },
 
+    // Set Codex CLI options
+    setCliOptions: (options: Partial<CliOptions>): Promise<CliOptions> => {
+        return ipcRenderer.invoke('set-cli-options', options)
+    },
+
+    // Get Codex CLI options
+    getCliOptions: (): Promise<CliOptions> => {
+        return ipcRenderer.invoke('get-cli-options')
+    },
+
     // ===== Codex CLI Installation API =====
     checkCodex: (): Promise<{ installed: boolean }> => {
         return ipcRenderer.invoke('check-codex')
@@ -141,9 +163,9 @@ contextBridge.exposeInMainWorld('geminiApi', {
         return ipcRenderer.invoke('switch-workspace', workspaceId, cwd)
     },
 
-    // Stream gemini response
-    streamGemini: (prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<void> => {
-        return ipcRenderer.invoke('stream-gemini', prompt, conversationHistory)
+    // Stream codex response
+    streamCodex: (prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>): Promise<void> => {
+        return ipcRenderer.invoke('stream-codex', prompt, conversationHistory)
     },
 
     // Cancel current prompt
@@ -218,7 +240,7 @@ contextBridge.exposeInMainWorld('geminiApi', {
 
     // Send approval response
     respondToApproval: (requestId: string, approved: boolean) =>
-        ipcRenderer.invoke('gemini:approval-response', { requestId, approved }),
+        ipcRenderer.invoke('codex:approval-response', { requestId, approved }),
 
     // ===== Database API =====
     db: {
@@ -242,13 +264,16 @@ contextBridge.exposeInMainWorld('geminiApi', {
     },
 
     // ===== Auth API =====
-    googleLogin: (): Promise<{ success: boolean; user?: GoogleUser; error?: string }> =>
-        ipcRenderer.invoke('google-login'),
+    codexLogin: (method?: 'browser' | 'device-auth' | 'api-key', apiKey?: string): Promise<{ success: boolean; user?: CodexUser; error?: string }> =>
+        ipcRenderer.invoke('codex-login', { method, apiKey }),
 
-    googleLogout: (): Promise<{ success: boolean; error?: string }> =>
-        ipcRenderer.invoke('google-logout'),
+    codexLogout: (): Promise<{ success: boolean; error?: string }> =>
+        ipcRenderer.invoke('codex-logout'),
 
-    getUser: (): Promise<GoogleUser | null> =>
+    codexLoginMethods: (): Promise<{ methods: Array<{ id: 'browser' | 'device-auth' | 'api-key'; label: string }> }> =>
+        ipcRenderer.invoke('codex-login-methods'),
+
+    getUser: (): Promise<CodexUser | null> =>
         ipcRenderer.invoke('get-user'),
 
     // ===== File Search API =====
@@ -271,6 +296,13 @@ contextBridge.exposeInMainWorld('geminiApi', {
     // ===== Terminal API =====
     runCommand: (command: string, cwd: string): Promise<{ success: boolean; commandId: string; output?: string; errorOutput?: string; exitCode?: number; error?: string }> =>
         ipcRenderer.invoke('run-command', command, cwd),
+
+    runCodexCommand: (
+        subcommand: string,
+        args: string[],
+        cwd?: string
+    ): Promise<{ success: boolean; stdout: string; stderr: string; exitCode: number; error?: string }> =>
+        ipcRenderer.invoke('run-codex-command', { subcommand, args, cwd }),
 
     killCommand: (commandId: string): Promise<{ success: boolean; error?: string }> =>
         ipcRenderer.invoke('kill-command', commandId),
@@ -302,8 +334,8 @@ contextBridge.exposeInMainWorld('geminiApi', {
         ipcRenderer.invoke('web-search', query),
 })
 
-// Google User type
-interface GoogleUser {
+// Codex user type
+interface CodexUser {
     id: string
     email: string
     name: string
@@ -346,16 +378,18 @@ interface FileSearchResult {
 // Type declaration for window
 declare global {
     interface Window {
-        geminiApi: {
+        codexApi: {
             setMode: (mode: ModelMode) => Promise<ModelMode>
             getMode: () => Promise<ModelMode>
             getModels: () => Promise<Array<{ id: string; name: string; description: string }>>
             getModel: () => Promise<string>
             setModel: (modelId: string) => Promise<string>
+            setCliOptions: (options: Partial<CliOptions>) => Promise<CliOptions>
+            getCliOptions: () => Promise<CliOptions>
             initAcp: () => Promise<{ success: boolean; error?: string }>
             openWorkspace: () => Promise<{ path: string; name: string } | null>
             switchWorkspace: (workspaceId: string, cwd: string) => Promise<{ success: boolean; sessionId?: string; error?: string }>
-            streamGemini: (prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<void>
+            streamCodex: (prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>) => Promise<void>
             cancelPrompt: () => Promise<{ success: boolean; error?: string }>
             updateTitleBarOverlay: (color: string, symbolColor: string) => Promise<{ success: boolean; error?: string }>
             onStreamToken: (callback: (token: string) => void) => void
@@ -379,6 +413,10 @@ declare global {
             }
             searchFiles: (workspacePath: string, query: string) => Promise<FileSearchResult[]>
             readFileContent: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
+            codexLogin: (method?: 'browser' | 'device-auth' | 'api-key', apiKey?: string) => Promise<{ success: boolean; user?: CodexUser; error?: string }>
+            codexLogout: () => Promise<{ success: boolean; error?: string }>
+            codexLoginMethods: () => Promise<{ methods: Array<{ id: 'browser' | 'device-auth' | 'api-key'; label: string }> }>
+            getUser: () => Promise<CodexUser | null>
             pty: {
                 create: (cwd?: string, shell?: string) => Promise<{ id: string; shell: string }>
                 write: (id: string, data: string) => Promise<{ success: boolean; error?: string }>
@@ -387,6 +425,7 @@ declare global {
                 onData: (callback: (id: string, data: string) => void) => void
                 onExit: (callback: (id: string, exitCode: number) => void) => void
             }
+            runCodexCommand: (subcommand: string, args: string[], cwd?: string) => Promise<{ success: boolean; stdout: string; stderr: string; exitCode: number; error?: string }>
         }
     }
 }

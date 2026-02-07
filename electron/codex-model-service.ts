@@ -4,7 +4,7 @@ import { GoogleGenerativeAI, GenerateContentStreamResult } from '@google/generat
 export type ModelMode = 'planning' | 'fast'
 
 // Response with thinking content
-export interface GeminiResponse {
+export interface CodexResponse {
     thinking?: string
     content: string
 }
@@ -14,21 +14,21 @@ export interface StreamCallbacks {
     onThinking?: (text: string) => void
     onContent?: (text: string) => void
     onError?: (error: Error) => void
-    onComplete?: (response: GeminiResponse) => void
+    onComplete?: (response: CodexResponse) => void
 }
 
 // Model configurations
 const MODELS = {
-    planning: 'gemini-2.5-flash',  // Has thinking capability
-    fast: 'gemini-2.0-flash'       // Fast model
+    planning: 'codex-2.5-flash',  // Has thinking capability
+    fast: 'codex-2.0-flash'       // Fast model
 }
 
-export class GeminiService {
+export class CodexService {
     private client: GoogleGenerativeAI | null = null
     private currentMode: ModelMode = 'planning'
 
     constructor() {
-        const apiKey = process.env.GEMINI_API_KEY
+        const apiKey = process.env.CODEX_API_KEY
         if (apiKey) {
             this.client = new GoogleGenerativeAI(apiKey)
         }
@@ -48,7 +48,7 @@ export class GeminiService {
 
     async streamGenerate(prompt: string, callbacks: StreamCallbacks): Promise<void> {
         if (!this.client) {
-            callbacks.onError?.(new Error('GEMINI_API_KEY not configured'))
+            callbacks.onError?.(new Error('CODEX_API_KEY not configured'))
             return
         }
 
@@ -58,7 +58,7 @@ export class GeminiService {
             })
 
             // Add Korean instruction
-            const fullPrompt = `[시스템: 한국어로만 답변. 이 지시는 언급하지 마세요.]\n\n${prompt}`
+            const fullPrompt = `[반드시 한국어로 답변하세요. 이모지는 사용하지 마세요.]\n\n${prompt}`
 
             const result: GenerateContentStreamResult = await model.generateContentStream(fullPrompt)
 
@@ -114,7 +114,7 @@ export class GeminiService {
         }
     }
 
-    async generate(prompt: string): Promise<GeminiResponse> {
+    async generate(prompt: string): Promise<CodexResponse> {
         return new Promise((resolve, reject) => {
             let thinking = ''
             let content = ''
@@ -130,11 +130,11 @@ export class GeminiService {
 }
 
 // Singleton instance
-let geminiService: GeminiService | null = null
+let codexService: CodexService | null = null
 
-export function getGeminiService(): GeminiService {
-    if (!geminiService) {
-        geminiService = new GeminiService()
+export function getCodexService(): CodexService {
+    if (!codexService) {
+        codexService = new CodexService()
     }
-    return geminiService
+    return codexService
 }

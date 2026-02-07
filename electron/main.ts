@@ -103,6 +103,33 @@ ipcMain.handle('set-model', async (_, modelId: string) => {
     return modelId
 })
 
+// Set Codex CLI options
+ipcMain.handle('set-cli-options', async (_, options: {
+    profile?: string
+    sandbox?: 'read-only' | 'workspace-write' | 'danger-full-access'
+    askForApproval?: 'untrusted' | 'on-failure' | 'on-request' | 'never'
+    skipGitRepoCheck?: boolean
+    cwdOverride?: string
+    extraArgs?: string
+    enableWebSearch?: boolean
+}) => {
+    getAcpService().setCliOptions({
+        profile: options.profile ?? '',
+        sandbox: options.sandbox ?? 'workspace-write',
+        askForApproval: options.askForApproval ?? 'on-request',
+        skipGitRepoCheck: options.skipGitRepoCheck ?? true,
+        cwdOverride: options.cwdOverride ?? '',
+        extraArgs: options.extraArgs ?? '',
+        enableWebSearch: options.enableWebSearch ?? false
+    })
+    return getAcpService().getCliOptions()
+})
+
+// Get Codex CLI options
+ipcMain.handle('get-cli-options', async () => {
+    return getAcpService().getCliOptions()
+})
+
 // Update titleBarOverlay color when theme changes
 ipcMain.handle('update-title-bar-overlay', async (_, { color, symbolColor }: { color: string; symbolColor: string }) => {
     if (win && process.platform === 'win32') {
@@ -445,6 +472,75 @@ ipcMain.handle('run-command', async (event, command: string, cwd: string) => {
     })
 })
 
+// Run codex subcommand with explicit args
+ipcMain.handle('run-codex-command', async (_, {
+    subcommand,
+    args = [],
+    cwd
+}: {
+    subcommand: string
+    args?: string[]
+    cwd?: string
+}) => {
+    return new Promise((resolve) => {
+        const targetCwd = cwd || getAcpService().getCwd()
+        const child = spawn('codex', [subcommand, ...args], {
+            shell: false,
+            cwd: targetCwd,
+            env: process.env
+        })
+
+        let stdout = ''
+        let stderr = ''
+        let completed = false
+
+        const finish = (result: any) => {
+            if (completed) return
+            completed = true
+            resolve(result)
+        }
+
+        child.stdout?.on('data', (data) => {
+            stdout += data.toString()
+        })
+
+        child.stderr?.on('data', (data) => {
+            stderr += data.toString()
+        })
+
+        child.on('close', (code) => {
+            finish({
+                success: code === 0,
+                stdout,
+                stderr,
+                exitCode: code
+            })
+        })
+
+        child.on('error', (error) => {
+            finish({
+                success: false,
+                stdout,
+                stderr,
+                exitCode: -1,
+                error: String(error)
+            })
+        })
+
+        setTimeout(() => {
+            if (!completed) {
+                child.kill()
+                finish({
+                    success: false,
+                    stdout,
+                    stderr: `${stderr}\nCommand timed out after 60 seconds`.trim(),
+                    exitCode: -1
+                })
+            }
+        }, 60000)
+    })
+})
+
 // Kill running command
 ipcMain.handle('kill-command', async (_, commandId: string) => {
     const process = runningProcesses.get(commandId)
@@ -572,52 +668,52 @@ ipcMain.handle('web-search', async (_, query: string) => {
     }
 })
 
-// Stream Gemini response via ACP
-ipcMain.handle('stream-gemini', async (event, prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>) => {
+// Stream Codex response via ACP
+ipcMain.handle('stream-codex', async (event, prompt: string, conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>) => {
     const webContents = event.sender
     const acp = getAcpService()
 
     const mode = acp.getMode()
     console.log(`[Main] Streaming with mode: ${mode}, history: ${conversationHistory?.length || 0} messages`)
-    webContents.send('gemini-mode', mode)
+    webContents.send('codex-mode', mode)
 
     return new Promise<void>((resolve) => {
         acp.prompt(prompt, {
             onThinking: (text) => {
-                webContents.send('gemini-thinking', text)
+                webContents.send('codex-thinking', text)
             },
             onThinkingDelta: (delta) => {
-                webContents.send('gemini-thinking-delta', delta)
+                webContents.send('codex-thinking-delta', delta)
             },
             onContent: (text) => {
-                webContents.send('gemini-stream-token', text)
+                webContents.send('codex-stream-token', text)
             },
             onContentDelta: (delta) => {
-                webContents.send('gemini-stream-delta', delta)
+                webContents.send('codex-stream-delta', delta)
             },
             onToolCall: (title, status, output) => {
-                webContents.send('gemini-tool-call', { title, status, output })
+                webContents.send('codex-tool-call', { title, status, output })
             },
             onTerminalOutput: (terminalId, output, exitCode) => {
-                webContents.send('gemini-terminal-output', { terminalId, output, exitCode })
+                webContents.send('codex-terminal-output', { terminalId, output, exitCode })
             },
             onApprovalRequest: (title, description, respond) => {
                 // Store the respond callback for this request
                 const requestId = Date.now().toString()
                 approvalCallbacks.set(requestId, respond)
-                webContents.send('gemini-approval-request', { requestId, title, description })
+                webContents.send('codex-approval-request', { requestId, title, description })
             },
             onProgress: (text) => {
-                webContents.send('gemini-progress', text)
+                webContents.send('codex-progress', text)
             },
             onError: (error) => {
                 console.error('[Main] ACP Error:', error)
-                webContents.send('gemini-stream-error', error.message)
+                webContents.send('codex-stream-error', error.message)
                 resolve()
             },
             onComplete: () => {
                 console.log('[Main] ACP Complete')
-                webContents.send('gemini-stream-end', {})
+                webContents.send('codex-stream-end', {})
                 resolve()
             }
         }, conversationHistory)
@@ -625,7 +721,7 @@ ipcMain.handle('stream-gemini', async (event, prompt: string, conversationHistor
 })
 
 // Handle approval response from UI
-ipcMain.handle('gemini:approval-response', async (_event: Electron.IpcMainInvokeEvent, { requestId, approved }: { requestId: string; approved: boolean }) => {
+ipcMain.handle('codex:approval-response', async (_event: Electron.IpcMainInvokeEvent, { requestId, approved }: { requestId: string; approved: boolean }) => {
     const callback = approvalCallbacks.get(requestId)
     if (callback) {
         callback(approved)
@@ -666,7 +762,7 @@ function createWindow() {
             console.log('[Main] ACP initialized:', success)
             win?.webContents.send('acp-ready', success)
 
-            // Warmup: preload Gemini model to reduce first response latency
+            // Warmup: preload Codex model to reduce first response latency
             if (success) {
                 console.log('[Main] Starting warmup to preload model...')
                 getAcpService().warmup().then(() => {

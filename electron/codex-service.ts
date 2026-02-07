@@ -1,6 +1,18 @@
 import { spawn, ChildProcess } from 'node:child_process'
 
 export type ModelMode = 'planning' | 'fast'
+export type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
+export type ApprovalPolicy = 'untrusted' | 'on-failure' | 'on-request' | 'never'
+
+export interface CodexCliOptions {
+    profile: string
+    sandbox: SandboxMode
+    askForApproval: ApprovalPolicy
+    skipGitRepoCheck: boolean
+    cwdOverride: string
+    extraArgs: string
+    enableWebSearch: boolean
+}
 
 // Available Codex models
 export const CODEX_MODELS = [
@@ -39,6 +51,15 @@ export class CodexService {
     private currentMode: ModelMode = 'fast'
     private currentModel: string = '' // Empty = use Codex default
     private yoloMode: boolean = true
+    private cliOptions: CodexCliOptions = {
+        profile: '',
+        sandbox: 'workspace-write',
+        askForApproval: 'on-request',
+        skipGitRepoCheck: true,
+        cwdOverride: '',
+        extraArgs: '',
+        enableWebSearch: false
+    }
     private callbacks: StreamCallbacks = {}
 
     setMode(mode: ModelMode) {
@@ -78,6 +99,18 @@ export class CodexService {
 
     setCallbacks(callbacks: StreamCallbacks) {
         this.callbacks = callbacks
+    }
+
+    setCliOptions(options: Partial<CodexCliOptions>) {
+        this.cliOptions = {
+            ...this.cliOptions,
+            ...options
+        }
+        console.log('[Codex] CLI options updated:', this.cliOptions)
+    }
+
+    getCliOptions(): CodexCliOptions {
+        return { ...this.cliOptions }
     }
 
     async initialize(cwd?: string): Promise<boolean> {
@@ -123,18 +156,38 @@ export class CodexService {
             args.push('-m', this.currentModel)
         }
 
+        // Apply optional profile
+        if (this.cliOptions.profile.trim()) {
+            args.push('-p', this.cliOptions.profile.trim())
+        }
+
         // Add YOLO mode if enabled
         if (this.yoloMode) {
             // Full access: bypass all approvals and sandbox
             args.push('--dangerously-bypass-approvals-and-sandbox')
+        } else {
+            args.push('-s', this.cliOptions.sandbox)
+            args.push('-a', this.cliOptions.askForApproval)
         }
-        // Permission mode: default behavior (asks for approval)
+
+        if (this.cliOptions.enableWebSearch) {
+            args.push('--search')
+        }
 
         // Set working directory
-        args.push('-C', this.currentCwd)
+        const runCwd = this.cliOptions.cwdOverride.trim() || this.currentCwd
+        args.push('-C', runCwd)
 
         // Skip git repo check (optional)
-        args.push('--skip-git-repo-check')
+        if (this.cliOptions.skipGitRepoCheck) {
+            args.push('--skip-git-repo-check')
+        }
+
+        // Append any raw extra args from advanced mode
+        const parsedExtraArgs = this.parseExtraArgs(this.cliOptions.extraArgs)
+        if (parsedExtraArgs.length > 0) {
+            args.push(...parsedExtraArgs)
+        }
 
         // Use '-' to read prompt from stdin (avoids command line encoding issues)
         args.push('-')
@@ -144,7 +197,7 @@ export class CodexService {
         try {
             this.process = spawn('codex', args, {
                 shell: true,
-                cwd: this.currentCwd,
+                cwd: runCwd,
                 env: {
                     ...process.env,
                     PYTHONIOENCODING: 'utf-8',
@@ -219,6 +272,14 @@ export class CodexService {
         } catch (error) {
             callbacks.onError?.(error instanceof Error ? error : new Error(String(error)))
         }
+    }
+
+    private parseExtraArgs(raw: string): string[] {
+        const input = raw.trim()
+        if (!input) return []
+
+        const matches = input.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g) || []
+        return matches.map(token => token.replace(/^['"]|['"]$/g, ''))
     }
 
     private handleEvent(event: CodexEvent) {

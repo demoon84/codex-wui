@@ -6,9 +6,17 @@
   "author": "Codex UI Team",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
-    "preview": "vite preview"
+    "dev:web": "vite",
+    "dev": "tauri dev",
+    "build:web": "tsc && vite build",
+    "build": "tauri build",
+    "build:electron": "tsc && vite build && electron-builder",
+    "preview": "vite preview",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "dev:electron": "vite",
+    "dev:tauri:web": "vite --config vite.tauri.config.ts",
+    "build:tauri:web": "tsc && vite build --config vite.tauri.config.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.14.0",
@@ -17,6 +25,7 @@
     "@google/generative-ai": "^0.24.1",
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
+    "@tauri-apps/api": "^2.8.0",
     "file-icon-vectors": "^1.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -28,6 +37,7 @@
     "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.10.0",
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
     "@vitejs/plugin-react": "^4.2.1",

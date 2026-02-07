@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+﻿import { useState, useRef, useEffect, useCallback } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ChatPanel } from './components/ChatPanel'
 
@@ -6,6 +6,7 @@ import { ChatPanel } from './components/ChatPanel'
 import { ModelSelector, AVAILABLE_MODELS, type ModelConfig } from './components/ModelSelector'
 import { StatusBar } from './components/StatusBar'
 import { ContextMenu } from './components/ContextMenu'
+import { CliControlPanel, type CliOptions, type CliPreset } from './components/CliControlPanel'
 import { getSavedTheme, applyTheme, type Theme } from './themes'
 
 // File search result interface
@@ -49,6 +50,19 @@ interface AppState {
     activeConversationId: string | null
 }
 
+const DEFAULT_CLI_OPTIONS: CliOptions = {
+    profile: '',
+    sandbox: 'workspace-write',
+    askForApproval: 'on-request',
+    skipGitRepoCheck: true,
+    cwdOverride: '',
+    extraArgs: '',
+    enableWebSearch: false
+}
+
+const CLI_PRESETS_KEY = 'codex.cli.presets.v1'
+const WORKSPACE_PRESET_MAP_KEY = 'codex.cli.workspacePresetMap.v1'
+
 
 function App() {
     // Codex installation state
@@ -88,11 +102,45 @@ function App() {
     // New Antigravity-style states
     const [searchLogs, setSearchLogs] = useState<{ query: string; results: number }[]>([])
     const [taskSummary, setTaskSummary] = useState<{ title: string; summary: string } | null>(null)
-    const [user, setUser] = useState<GoogleUser | null>(null)
+    const [user, setUser] = useState<CodexUser | null>(null)
+    const [authBusy, setAuthBusy] = useState(false)
+    const [authError, setAuthError] = useState('')
+    const [apiKeyInput, setApiKeyInput] = useState('')
     const [yoloMode, setYoloMode] = useState(true) // Auto-approve by default
     const [approvalRequest, setApprovalRequest] = useState<{ requestId: string; title: string; description: string } | null>(null)
+    const [showCliPanel, setShowCliPanel] = useState(false)
+    const [cliOptions, setCliOptions] = useState<CliOptions>(DEFAULT_CLI_OPTIONS)
+    const [cliPresets, setCliPresets] = useState<CliPreset[]>([])
+    const [selectedPresetId, setSelectedPresetId] = useState('')
+    const [cliCommandOutput, setCliCommandOutput] = useState('')
 
     const inputRef = useRef<HTMLTextAreaElement>(null)
+    const handleCodexLogin = useCallback(async (method: 'browser' | 'device-auth' | 'api-key') => {
+        if (authBusy) return
+        if (method === 'api-key' && !apiKeyInput.trim()) {
+            setAuthError('API key is required.')
+            return
+        }
+
+        setAuthBusy(true)
+        setAuthError('')
+        try {
+            const result = await window.codexApi?.codexLogin(
+                method,
+                method === 'api-key' ? apiKeyInput.trim() : undefined
+            )
+            if (result?.success && result.user) {
+                setUser(result.user)
+                setApiKeyInput('')
+                return
+            }
+            setAuthError(result?.error || 'Login failed.')
+        } catch (error) {
+            setAuthError(String(error))
+        } finally {
+            setAuthBusy(false)
+        }
+    }, [apiKeyInput, authBusy])
 
     // Derived state
     const activeWorkspace = appState.workspaces.find(w => w.id === appState.activeWorkspaceId) || null
@@ -111,20 +159,55 @@ function App() {
                 e.preventDefault()
                 const newValue = !yoloMode
                 setYoloMode(newValue)
-                await window.geminiApi?.setYoloMode(newValue)
+                await window.codexApi?.setYoloMode(newValue)
                 console.log(`[App] YOLO mode ${newValue ? 'enabled' : 'disabled'} (Ctrl+Y)`)
+            }
+            if (e.ctrlKey && e.key.toLowerCase() === 'k') {
+                e.preventDefault()
+                setShowCliPanel(prev => !prev)
             }
         }
         window.addEventListener('keydown', handleKeyDown)
         return () => window.removeEventListener('keydown', handleKeyDown)
     }, [yoloMode])
 
+    // Sync initial runtime settings from backend
+    useEffect(() => {
+        const loadRuntimeSettings = async () => {
+            try {
+                const [yolo, options] = await Promise.all([
+                    window.codexApi?.getYoloMode?.(),
+                    window.codexApi?.getCliOptions?.()
+                ])
+                if (typeof yolo === 'boolean') setYoloMode(yolo)
+                if (options) setCliOptions(options)
+            } catch (error) {
+                console.error('[App] Failed to load runtime settings:', error)
+            }
+        }
+        loadRuntimeSettings()
+    }, [])
+
+    // Keep Codex model in sync with UI selector
+    useEffect(() => {
+        window.codexApi?.setModel?.(model.id).catch((error: unknown) => {
+            console.error('[App] Failed to set model:', error)
+        })
+    }, [model])
+
+    // Push CLI options whenever UI changes
+    useEffect(() => {
+        window.codexApi?.setCliOptions?.(cliOptions).catch(error => {
+            console.error('[App] Failed to set CLI options:', error)
+        })
+    }, [cliOptions])
+
     // Load state from SQLite on startup
     useEffect(() => {
         async function loadFromDb() {
-            if (!window.geminiApi?.db) return
+            if (!window.codexApi?.db) return
             try {
-                const state = await window.geminiApi.db.getState()
+                const state = await window.codexApi.db.getState()
                 setAppState({
                     workspaces: state.workspaces,
                     activeWorkspaceId: state.workspaces[0]?.id || null,
@@ -140,6 +223,43 @@ function App() {
         loadFromDb()
     }, [])
 
+    // Load stored CLI presets
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(CLI_PRESETS_KEY)
+            if (!raw) return
+            const parsed = JSON.parse(raw) as CliPreset[]
+            if (Array.isArray(parsed)) {
+                setCliPresets(parsed)
+            }
+        } catch (error) {
+            console.error('[App] Failed to load CLI presets:', error)
+        }
+    }, [])
+
+    // Persist CLI presets
+    useEffect(() => {
+        localStorage.setItem(CLI_PRESETS_KEY, JSON.stringify(cliPresets))
+    }, [cliPresets])
+
+    // Apply workspace preset automatically when workspace changes
+    useEffect(() => {
+        if (!activeWorkspace?.path) return
+        try {
+            const raw = localStorage.getItem(WORKSPACE_PRESET_MAP_KEY)
+            if (!raw) return
+            const mapping = JSON.parse(raw) as Record<string, string>
+            const presetId = mapping[activeWorkspace.path]
+            if (!presetId) return
+            const preset = cliPresets.find(p => p.id === presetId)
+            if (!preset) return
+            setSelectedPresetId(preset.id)
+            setCliOptions(preset.options)
+        } catch (error) {
+            console.error('[App] Failed to apply workspace preset:', error)
+        }
+    }, [activeWorkspace?.path, cliPresets])
+
     // Apply saved theme on startup
     useEffect(() => {
         applyTheme(theme)
@@ -149,7 +269,7 @@ function App() {
     useEffect(() => {
         const checkCodexInstallation = async () => {
             try {
-                const result = await window.geminiApi?.checkCodex()
+                const result = await window.codexApi?.checkCodex()
                 if (result?.installed) {
                     setCodexInstalled(true)
                 }
@@ -162,7 +282,7 @@ function App() {
         checkCodexInstallation()
 
         // Listen for install progress
-        window.geminiApi?.onCodexInstallProgress?.((data) => {
+        window.codexApi?.onCodexInstallProgress?.((data) => {
             setInstallProgress(data)
             if (data.status === 'complete') {
                 setCodexInstalled(true)
@@ -199,7 +319,7 @@ function App() {
     // Load initial user and check on window focus (for after browser auth)
     useEffect(() => {
         const checkUser = () => {
-            window.geminiApi?.getUser().then(u => {
+            window.codexApi?.getUser().then(u => {
                 if (u) setUser(u)
             })
         }
@@ -217,14 +337,14 @@ function App() {
 
     // Setup event listeners (only once)
     useEffect(() => {
-        if (!window.geminiApi) return
+        if (!window.codexApi) return
 
-        window.geminiApi.onAcpReady?.((ready: boolean) => {
+        window.codexApi.onAcpReady?.((ready: boolean) => {
             console.log('ACP Ready:', ready)
             setAcpReady(ready)
         })
 
-        window.geminiApi.onThinking?.((text: string) => {
+        window.codexApi.onThinking?.((text: string) => {
             if (!thinkingStartTimeRef.current) {
                 setThinkingStartTime(Date.now())
             }
@@ -233,7 +353,7 @@ function App() {
         })
 
         // Handle streaming content delta with auto line breaks
-        window.geminiApi.onStreamDelta?.((delta: string) => {
+        window.codexApi.onStreamDelta?.((delta: string) => {
             setStreamingContent(prev => {
                 // Auto add line breaks before bold text patterns that indicate new sections
                 let processedDelta = delta
@@ -250,7 +370,7 @@ function App() {
             })
         })
 
-        window.geminiApi.onToolCall?.((data: { title: string; status: string }) => {
+        window.codexApi.onToolCall?.((data: { title: string; status: string }) => {
             console.log('[App] Tool call:', data.title, data.status)
             setToolCalls(prev => {
                 // Update existing or add new
@@ -343,7 +463,7 @@ function App() {
             })
         })
 
-        window.geminiApi.onTerminalOutput?.((data: { terminalId: string; output: string; exitCode: number | null }) => {
+        window.codexApi.onTerminalOutput?.((data: { terminalId: string; output: string; exitCode: number | null }) => {
             console.log('[App] Terminal output:', data.terminalId, 'exitCode:', data.exitCode)
             setTerminalOutput(data)
 
@@ -377,17 +497,17 @@ function App() {
         })
 
         // Register approval request callback
-        window.geminiApi.onApprovalRequest?.((data: { requestId: string; title: string; description: string }) => {
+        window.codexApi.onApprovalRequest?.((data: { requestId: string; title: string; description: string }) => {
             console.log('[App] Approval request:', data)
             setApprovalRequest(data)
         })
 
-        window.geminiApi.onStreamToken((token: string) => {
+        window.codexApi.onStreamToken((token: string) => {
             streamingContentRef.current += token
             setStreamingContent(prev => prev + token)
         })
 
-        window.geminiApi.onStreamEnd(() => {
+        window.codexApi.onStreamEnd(() => {
             const duration = thinkingStartTimeRef.current
                 ? Math.round((Date.now() - thinkingStartTimeRef.current) / 1000)
                 : 0
@@ -425,7 +545,7 @@ function App() {
             setIsLoading(false)
         })
 
-        window.geminiApi.onStreamError((error: string) => {
+        window.codexApi.onStreamError((error: string) => {
             console.error('Stream error:', error)
             setStreamingContent('')
             setStreamingThinking('')
@@ -454,7 +574,7 @@ function App() {
 
         // Save to DB
         try {
-            await window.geminiApi?.db.createMessage(message)
+            await window.codexApi?.db.createMessage(message)
         } catch (error) {
             console.error('[App] Failed to save message:', error)
         }
@@ -481,9 +601,9 @@ function App() {
 
     // Add workspace
     const handleAddWorkspace = async () => {
-        if (!window.geminiApi?.openWorkspace) return
+        if (!window.codexApi?.openWorkspace) return
 
-        const result = await window.geminiApi.openWorkspace()
+        const result = await window.codexApi.openWorkspace()
         if (!result) return
 
         const workspaceId = crypto.randomUUID()
@@ -492,8 +612,8 @@ function App() {
 
         // Create in DB
         try {
-            await window.geminiApi.db.createWorkspace(workspaceId, result.name, result.path)
-            await window.geminiApi.db.createConversation(conversationId, workspaceId, 'New conversation')
+            await window.codexApi.db.createWorkspace(workspaceId, result.name, result.path)
+            await window.codexApi.db.createConversation(conversationId, workspaceId, 'New conversation')
         } catch (error) {
             console.error('[App] Failed to create workspace:', error)
             return
@@ -521,8 +641,8 @@ function App() {
         }))
 
         // Switch ACP session to new workspace
-        if (window.geminiApi?.switchWorkspace) {
-            await window.geminiApi.switchWorkspace(workspaceId, result.path)
+        if (window.codexApi?.switchWorkspace) {
+            await window.codexApi.switchWorkspace(workspaceId, result.path)
         }
     }
 
@@ -538,8 +658,8 @@ function App() {
         }))
 
         // Switch ACP session
-        if (window.geminiApi?.switchWorkspace) {
-            await window.geminiApi.switchWorkspace(workspaceId, workspace.path)
+        if (window.codexApi?.switchWorkspace) {
+            await window.codexApi.switchWorkspace(workspaceId, workspace.path)
         }
     }
 
@@ -552,8 +672,8 @@ function App() {
 
         // If switching to a different workspace, remount CLI
         if (workspace && workspace.id !== appState.activeWorkspaceId) {
-            if (window.geminiApi?.switchWorkspace) {
-                await window.geminiApi.switchWorkspace(workspace.id, workspace.path)
+            if (window.codexApi?.switchWorkspace) {
+                await window.codexApi.switchWorkspace(workspace.id, workspace.path)
             }
         }
 
@@ -573,7 +693,7 @@ function App() {
 
         // Create in DB
         try {
-            await window.geminiApi?.db.createConversation(conversationId, appState.activeWorkspaceId, 'New conversation')
+            await window.codexApi?.db.createConversation(conversationId, appState.activeWorkspaceId, 'New conversation')
         } catch (error) {
             console.error('[App] Failed to create conversation:', error)
             return
@@ -614,7 +734,7 @@ function App() {
 
         // Create in DB
         try {
-            await window.geminiApi?.db.createConversation(conversationId, workspaceId, 'New conversation')
+            await window.codexApi?.db.createConversation(conversationId, workspaceId, 'New conversation')
         } catch (error) {
             console.error('[App] Failed to create conversation:', error)
             return
@@ -643,8 +763,8 @@ function App() {
         }))
 
         // Switch ACP session to this workspace
-        if (window.geminiApi?.switchWorkspace) {
-            await window.geminiApi.switchWorkspace(workspaceId, workspace.path)
+        if (window.codexApi?.switchWorkspace) {
+            await window.codexApi.switchWorkspace(workspaceId, workspace.path)
         }
 
         // Focus input after new conversation
@@ -655,7 +775,7 @@ function App() {
     const handleDeleteConversation = async (conversationId: string) => {
         // Delete from DB
         try {
-            await window.geminiApi?.db.deleteConversation(conversationId)
+            await window.codexApi?.db.deleteConversation(conversationId)
         } catch (error) {
             console.error('[App] Failed to delete conversation:', error)
             return
@@ -686,7 +806,7 @@ function App() {
     const handleRemoveWorkspace = async (workspaceId: string) => {
         // Delete workspace and its conversations from DB
         try {
-            await window.geminiApi?.db.deleteWorkspace(workspaceId)
+            await window.codexApi?.db.deleteWorkspace(workspaceId)
         } catch (error) {
             console.error('[App] Failed to delete workspace:', error)
             return
@@ -735,7 +855,7 @@ function App() {
                     id: crypto.randomUUID(),
                     conversationId: appState.activeConversationId,
                     role: 'assistant',
-                    content: currentContent || '(응답 중 취소됨)',
+                    content: currentContent || '(응답이 취소됨)',
                     timestamp: new Date().toISOString(),
                     thinking: currentThinking || undefined,
                     thinkingDuration: duration || undefined
@@ -749,7 +869,7 @@ function App() {
                 setStreamingThinking('')
             }
 
-            await window.geminiApi?.cancelPrompt()
+            await window.codexApi?.cancelPrompt()
             // Small delay to ensure cancel completes
             await new Promise(r => setTimeout(r, 100))
         }
@@ -772,8 +892,8 @@ function App() {
             const newTitle = userMessage.content.slice(0, 30) + (userMessage.content.length > 30 ? '...' : '')
 
             // Update DB
-            if (window.geminiApi?.db) {
-                window.geminiApi.db.updateConversationTitle(appState.activeConversationId, newTitle)
+            if (window.codexApi?.db) {
+                window.codexApi.db.updateConversationTitle(appState.activeConversationId, newTitle)
             }
 
             setAppState(prev => ({
@@ -808,19 +928,110 @@ function App() {
         setTimeout(() => inputRef.current?.focus(), 0)
 
         try {
-            if (window.geminiApi) {
-                // 최근 3개 대화 내역 전달
+            if (window.codexApi) {
+                // 최근 3개 검색 기록 전달
                 const recentHistory = messages.slice(-6).map(m => ({
                     role: m.role as 'user' | 'assistant',
                     content: m.content
                 }))
-                await window.geminiApi.streamGemini(userMessage.content, recentHistory)
+                await window.codexApi.streamCodex(userMessage.content, recentHistory)
             }
         } catch (error) {
             console.error('Failed to send message:', error)
             setIsLoading(false)
         }
     }, [input, appState, messages.length, isLoading, attachedFiles])
+
+    const saveWorkspacePresetMapping = (workspacePath: string, presetId: string) => {
+        try {
+            const raw = localStorage.getItem(WORKSPACE_PRESET_MAP_KEY)
+            const mapping = raw ? JSON.parse(raw) as Record<string, string> : {}
+            mapping[workspacePath] = presetId
+            localStorage.setItem(WORKSPACE_PRESET_MAP_KEY, JSON.stringify(mapping))
+        } catch (error) {
+            console.error('[App] Failed to save workspace preset mapping:', error)
+        }
+    }
+
+    const handleApplyPreset = (presetId: string) => {
+        const preset = cliPresets.find(p => p.id === presetId)
+        if (!preset) return
+        setCliOptions(preset.options)
+        setSelectedPresetId(preset.id)
+        if (activeWorkspace?.path) {
+            saveWorkspacePresetMapping(activeWorkspace.path, preset.id)
+        }
+    }
+
+    const handleSavePreset = (name: string) => {
+        const preset: CliPreset = {
+            id: crypto.randomUUID(),
+            name,
+            options: cliOptions
+        }
+        setCliPresets(prev => [...prev, preset])
+        setSelectedPresetId(preset.id)
+        if (activeWorkspace?.path) {
+            saveWorkspacePresetMapping(activeWorkspace.path, preset.id)
+        }
+    }
+
+    const handleDeletePreset = (presetId: string) => {
+        setCliPresets(prev => prev.filter(p => p.id !== presetId))
+        if (selectedPresetId === presetId) {
+            setSelectedPresetId('')
+        }
+    }
+
+    const handleSelectPreset = (presetId: string) => {
+        setSelectedPresetId(presetId)
+        if (activeWorkspace?.path && presetId) {
+            saveWorkspacePresetMapping(activeWorkspace.path, presetId)
+        }
+    }
+
+    const runCodexSubcommand = async (subcommand: string, args: string[] = []) => {
+        const result = await window.codexApi?.runCodexCommand?.(
+            subcommand,
+            args,
+            activeWorkspace?.path
+        )
+        if (!result) return
+        const header = `$ codex ${subcommand} ${args.join(' ')}`.trim()
+        const output = [header, '', result.stdout || '', result.stderr || '']
+            .filter(Boolean)
+            .join('\n')
+        setCliCommandOutput(output)
+    }
+
+    const handleRunQuickCommand = async (command: 'version' | 'exec-help' | 'review-help' | 'mcp-help' | 'features') => {
+        switch (command) {
+            case 'version':
+                await runCodexSubcommand('--version')
+                break
+            case 'exec-help':
+                await runCodexSubcommand('exec', ['--help'])
+                break
+            case 'review-help':
+                await runCodexSubcommand('review', ['--help'])
+                break
+            case 'mcp-help':
+                await runCodexSubcommand('mcp', ['--help'])
+                break
+            case 'features':
+                await runCodexSubcommand('features')
+                break
+        }
+    }
+
+    const handleRunCustomCodexCommand = async (raw: string) => {
+        const trimmed = raw.trim()
+        if (!trimmed) return
+        const tokens = trimmed.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map(token => token.replace(/^['"]|['"]$/g, '')) || []
+        if (tokens.length === 0) return
+        const [subcommand, ...args] = tokens
+        await runCodexSubcommand(subcommand, args)
+    }
 
     // Handle input change with @ detection and auto-resize
     const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -895,7 +1106,6 @@ function App() {
             </div>
         )
     }
-
     // Show login screen if not authenticated
     if (!user) {
         return (
@@ -906,33 +1116,48 @@ function App() {
                 </div>
 
                 {/* Centered Login */}
-                <div className="flex-1 flex flex-col items-center justify-center gap-6">
+                <div className="flex-1 flex flex-col items-center justify-center gap-4">
                     <div className="text-center">
                         <h1 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-2">Codex UI</h1>
-                        <p className="text-sm text-[var(--color-text-muted)]">시작하려면 Google 계정으로 로그인하세요</p>
+                        <p className="text-sm text-[var(--color-text-muted)]">Choose a Codex login method</p>
                     </div>
-                    <button
-                        onClick={async () => {
-                            const result = await window.geminiApi?.googleLogin()
-                            if (result?.success && result.user) {
-                                setUser(result.user)
-                            }
-                        }}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-[var(--color-bg-card)] hover:bg-[var(--color-border)] border border-[var(--color-border)] rounded-lg transition-colors"
-                    >
-                        <svg className="w-5 h-5" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                        </svg>
-                        <span className="text-sm text-[var(--color-text-primary)]">Google로 로그인</span>
-                    </button>
+                    <div className="w-full max-w-sm flex flex-col gap-2">
+                        <button
+                            onClick={() => void handleCodexLogin('browser')}
+                            disabled={authBusy}
+                            className="px-4 py-2.5 bg-[var(--color-bg-card)] hover:bg-[var(--color-border)] border border-[var(--color-border)] rounded-lg transition-colors text-sm"
+                        >
+                            Continue in Browser
+                        </button>
+                        <button
+                            onClick={() => void handleCodexLogin('device-auth')}
+                            disabled={authBusy}
+                            className="px-4 py-2.5 bg-[var(--color-bg-card)] hover:bg-[var(--color-border)] border border-[var(--color-border)] rounded-lg transition-colors text-sm"
+                        >
+                            Device Authentication
+                        </button>
+                        <input
+                            type="password"
+                            value={apiKeyInput}
+                            onChange={(e) => setApiKeyInput(e.target.value)}
+                            placeholder="OPENAI_API_KEY"
+                            className="px-3 py-2 bg-[var(--color-bg-sidebar)] border border-[var(--color-border)] rounded-lg text-sm outline-none"
+                        />
+                        <button
+                            onClick={() => void handleCodexLogin('api-key')}
+                            disabled={authBusy}
+                            className="px-4 py-2.5 bg-[var(--color-bg-card)] hover:bg-[var(--color-border)] border border-[var(--color-border)] rounded-lg transition-colors text-sm"
+                        >
+                            Use API Key
+                        </button>
+                        {authError && (
+                            <div className="text-xs text-red-500">{authError}</div>
+                        )}
+                    </div>
                 </div>
             </div>
         )
     }
-
     // Codex CLI Installation Screen (with progress)
     if (!codexChecked) {
         return (
@@ -953,7 +1178,7 @@ function App() {
             setIsInstallingCodex(true)
             setInstallProgress({ status: 'starting', message: '설치 시작...' })
             try {
-                await window.geminiApi?.installCodex()
+                await window.codexApi?.installCodex()
             } catch (error) {
                 setInstallProgress({ status: 'error', message: String(error) })
                 setIsInstallingCodex(false)
@@ -1011,7 +1236,7 @@ function App() {
                     )}
 
                     <p className="text-[11px] text-[var(--color-text-muted)]">
-                        npm install -g @openai/codex 명령어가 실행됩니다
+                        npm install -g @openai/codex 명령어를 실행합니다.
                     </p>
                 </div>
             </div>
@@ -1045,31 +1270,25 @@ function App() {
                             )}
                             <button
                                 onClick={async () => {
-                                    await window.geminiApi?.googleLogout()
+                                    await window.codexApi?.codexLogout()
                                     setUser(null)
                                 }}
                                 className="text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
                             >
-                                로그아웃
+                                Logout
                             </button>
                         </div>
                     ) : (
                         <button
                             onClick={async () => {
-                                const result = await window.geminiApi?.googleLogin()
+                                const result = await window.codexApi?.codexLogin('browser')
                                 if (result?.success && result.user) {
                                     setUser(result.user)
                                 }
                             }}
                             className="flex items-center gap-1 px-2 py-0.5 text-[10px] bg-[var(--color-bg-card)] hover:bg-[var(--color-border)] rounded transition-colors"
                         >
-                            <svg className="w-3 h-3" viewBox="0 0 24 24">
-                                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                            </svg>
-                            로그인
+                            Login
                         </button>
                     )}
                 </div>
@@ -1102,10 +1321,38 @@ function App() {
                             <span className="text-[var(--color-text-muted)]">/</span>
                             <span className="text-[var(--color-text-primary)]">{activeConversation?.title || 'Select a conversation'}</span>
                         </div>
+                        <button
+                            onClick={() => setShowCliPanel(prev => !prev)}
+                            className="text-[11px] px-2 py-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+                            title="Ctrl+K"
+                        >
+                            CLI
+                        </button>
                     </header>
 
                     {/* Chat Area */}
                     <div className="flex-1 flex flex-col overflow-hidden">
+                        <CliControlPanel
+                            visible={showCliPanel}
+                            yoloMode={yoloMode}
+                            options={cliOptions}
+                            presets={cliPresets}
+                            selectedPresetId={selectedPresetId}
+                            commandOutput={cliCommandOutput}
+                            onClose={() => setShowCliPanel(false)}
+                            onToggleYolo={async (value) => {
+                                setYoloMode(value)
+                                await window.codexApi?.setYoloMode(value)
+                            }}
+                            onChangeOptions={setCliOptions}
+                            onApplyPreset={handleApplyPreset}
+                            onSavePreset={handleSavePreset}
+                            onDeletePreset={handleDeletePreset}
+                            onSelectPreset={handleSelectPreset}
+                            onRunQuickCommand={handleRunQuickCommand}
+                            onRunCustomCommand={handleRunCustomCodexCommand}
+                        />
+
                         <ChatPanel
                             messages={messages}
                             streamingContent={streamingContent}
@@ -1122,7 +1369,7 @@ function App() {
                             taskSummary={taskSummary}
                             approvalRequest={approvalRequest}
                             onApprovalResponse={async (requestId, approved) => {
-                                await window.geminiApi?.respondToApproval(requestId, approved)
+                                await window.codexApi?.respondToApproval(requestId, approved)
                                 setApprovalRequest(null)
                             }}
                         />
@@ -1171,8 +1418,8 @@ function App() {
                                         onKeyDown={handleKeyDown}
                                         placeholder={
                                             !activeWorkspace ? "워크스페이스를 열어 시작하세요..." :
-                                                isLoading ? "새 질문을 입력하면 현재 응답이 취소됩니다..." :
-                                                    "무엇이든 말하세요"
+                                                isLoading ? "질문을 입력하면 현재 응답을 취소합니다..." :
+                                                    "무엇이든 말해보세요"
                                         }
                                         className="w-full resize-none bg-transparent border-none outline-none text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] min-h-[24px] max-h-[200px] text-[12px] overflow-y-auto"
                                         rows={1}
@@ -1191,7 +1438,7 @@ function App() {
                                         {isLoading ? (
                                             <button
                                                 onClick={async () => {
-                                                    await window.geminiApi?.cancelPrompt()
+                                                    await window.codexApi?.cancelPrompt()
                                                     setIsLoading(false)
                                                     setToolCalls([])
                                                 }}
@@ -1234,7 +1481,7 @@ function App() {
                 yoloMode={yoloMode}
                 onYoloModeChange={async (value) => {
                     setYoloMode(value)
-                    await window.geminiApi?.setYoloMode(value)
+                    await window.codexApi?.setYoloMode(value)
                 }}
             />
         </div>
