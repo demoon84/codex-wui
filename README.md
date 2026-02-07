@@ -70,7 +70,3 @@ codex-wui/
 ├── public/             # 정적 파일
 └── release/            # 빌드 결과물
 ```
-
-## 라이선스
-
-MIT License
