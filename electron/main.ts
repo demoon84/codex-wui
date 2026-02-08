@@ -167,6 +167,9 @@ function registerIpcHandlers() {
         db.dbCreateWorkspace(appState.db, id, name, workspacePath),
     );
     ipcMain.handle('db-delete-workspace', (_e, id) => db.dbDeleteWorkspace(appState.db, id));
+    ipcMain.handle('db-update-workspace-name', (_e, id, name) =>
+        db.dbUpdateWorkspaceName(appState.db, id, name),
+    );
     ipcMain.handle('db-get-conversations', (_e, workspaceId) =>
         db.dbGetConversations(appState.db, workspaceId),
     );

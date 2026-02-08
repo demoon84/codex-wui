@@ -89,6 +89,8 @@ contextBridge.exposeInMainWorld('codexApi', {
         createWorkspace: (id: string, name: string, path: string) =>
             ipcRenderer.invoke('db-create-workspace', id, name, path),
         deleteWorkspace: (id: string) => ipcRenderer.invoke('db-delete-workspace', id),
+        updateWorkspaceName: (id: string, name: string) =>
+            ipcRenderer.invoke('db-update-workspace-name', id, name),
         getConversations: (workspaceId: string) =>
             ipcRenderer.invoke('db-get-conversations', workspaceId),
         createConversation: (id: string, workspaceId: string, title: string) =>

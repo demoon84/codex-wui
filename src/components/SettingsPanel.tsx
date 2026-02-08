@@ -93,6 +93,7 @@ const RECOMMENDED_MCP_SERVERS: RecommendedMcpServer[] = [
 interface SettingsPanelProps {
     visible: boolean
     onClose: () => void
+    initialTab?: SettingsTabId
     // Execution policy
     yoloMode: boolean
     onYoloModeChange: (v: boolean) => void
@@ -117,7 +118,7 @@ interface SettingsPanelProps {
     onTeamsSettingsChange: (settings: { webhookUrl?: string; autoForward?: boolean }) => void
 }
 
-type TabId = 'mcp' | 'model' | 'execution' | 'features' | 'advanced' | 'teams'
+export type SettingsTabId = 'mcp' | 'model' | 'execution' | 'features' | 'advanced' | 'teams'
 
 // ===== Helper: parse MCP list JSON output =====
 function parseMcpList(stdout: string): McpServer[] {
@@ -170,6 +171,7 @@ function parseFeaturesList(stdout: string): FeatureFlag[] {
 export const SettingsPanel = memo(function SettingsPanel({
     visible,
     onClose,
+    initialTab,
     yoloMode,
     onYoloModeChange,
     cliOptions,
@@ -180,7 +182,7 @@ export const SettingsPanel = memo(function SettingsPanel({
     teamsAutoForward,
     onTeamsSettingsChange,
 }: SettingsPanelProps) {
-    const [activeTab, setActiveTab] = useState<TabId>('execution')
+    const [activeTab, setActiveTab] = useState<SettingsTabId>(initialTab ?? 'execution')
 
     // MCP state
     const [mcpServers, setMcpServers] = useState<McpServer[]>([])
@@ -210,11 +212,14 @@ export const SettingsPanel = memo(function SettingsPanel({
     // Load data when panel opens
     useEffect(() => {
         if (!visible) return
+        if (initialTab) {
+            setActiveTab(initialTab)
+        }
         setModelInput(model)
         loadMcpServers()
         loadFeatures()
         loadConfig()
-    }, [visible, model])
+    }, [visible, model, initialTab])
 
     // ===== MCP Operations =====
     const loadMcpServers = useCallback(async () => {
@@ -363,7 +368,7 @@ export const SettingsPanel = memo(function SettingsPanel({
 
     if (!visible) return null
 
-    const tabs: { id: TabId; label: string; icon: JSX.Element }[] = [
+    const tabs: { id: SettingsTabId; label: string; icon: JSX.Element }[] = [
         {
             id: 'mcp', label: 'MCP Servers',
             icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" /></svg>

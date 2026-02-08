@@ -211,6 +211,8 @@ export const db = {
         api().db.createWorkspace(id, name, path),
     deleteWorkspace: (id: string) =>
         api().db.deleteWorkspace(id),
+    updateWorkspaceName: (id: string, name: string) =>
+        api().db.updateWorkspaceName(id, name),
     getConversations: (workspaceId: string) =>
         api().db.getConversations(workspaceId),
     createConversation: (id: string, workspaceId: string, title: string) =>

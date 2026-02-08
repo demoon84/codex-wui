@@ -141,6 +141,15 @@ export function dbDeleteWorkspace(db: Database.Database, id: string): { success:
     return { success: true };
 }
 
+export function dbUpdateWorkspaceName(
+    db: Database.Database,
+    id: string,
+    name: string,
+): { success: boolean } {
+    db.prepare('UPDATE workspaces SET name = ? WHERE id = ?').run(name, id);
+    return { success: true };
+}
+
 export function dbGetConversations(db: Database.Database, workspaceId: string): Conversation[] {
     try {
         return loadConversations(db, workspaceId);

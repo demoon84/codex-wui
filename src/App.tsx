@@ -9,6 +9,7 @@ import { ModelSelector, AVAILABLE_MODELS, type ModelConfig } from './components/
 import { StatusBar } from './components/StatusBar'
 import { ContextMenu } from './components/ContextMenu'
 import { type CliOptions } from './components/CliControlPanel'
+import { type SettingsTabId } from './components/SettingsPanel'
 import { getSavedTheme, applyTheme, type Theme } from './themes'
 import { requestNotificationPermission } from './utils/notifications'
 
@@ -176,6 +177,7 @@ function App() {
     const [yoloMode, setYoloMode] = useState(false)
     const [approvalRequest, setApprovalRequest] = useState<{ requestId: string; title: string; description: string } | null>(null)
     const [showSettings, setShowSettings] = useState(false)
+    const [settingsTab, setSettingsTab] = useState<SettingsTabId | undefined>(undefined)
 
     // Teams integration state
     const [teamsWebhookUrl, setTeamsWebhookUrl] = useState(() => localStorage.getItem('codex.teams.webhookUrl') || '')
@@ -220,6 +222,7 @@ function App() {
         activeConversation?.messages || [],
         [activeConversation]
     )
+
 
     // Auto-focus input on page load and conversation change
     useEffect(() => {
@@ -1037,6 +1040,24 @@ function App() {
         })
     }, [])
 
+    const handleRenameWorkspace = useCallback(async (workspaceId: string, newName: string) => {
+        const workspace = appState.workspaces.find(w => w.id === workspaceId)
+        if (!workspace) return
+        if (!newName || newName === workspace.name) return
+
+        try {
+            await codexApi.db.updateWorkspaceName(workspaceId, newName)
+        } catch (error) {
+            console.error('[App] Failed to rename workspace:', error)
+            return
+        }
+
+        setAppState(prev => ({
+            ...prev,
+            workspaces: prev.workspaces.map(w => w.id === workspaceId ? { ...w, name: newName } : w)
+        }))
+    }, [appState.workspaces])
+
 
 
     const handleSubmit = useCallback(async (e?: React.FormEvent) => {
@@ -1306,6 +1327,11 @@ function App() {
         }
     }, [])
 
+    const handleOpenSettings = useCallback((tab?: SettingsTabId) => {
+        setSettingsTab(tab)
+        setShowSettings(true)
+    }, [])
+
 
 
     const handleCancelStream = useCallback(async () => {
@@ -1448,6 +1474,9 @@ function App() {
                     onNewConversationInWorkspace={handleNewConversationInWorkspace}
                     onDeleteConversation={handleDeleteConversation}
                     onRemoveWorkspace={handleRemoveWorkspace}
+                    onRenameWorkspace={handleRenameWorkspace}
+                    onOpenSettings={handleOpenSettings}
+                    activeConversationHasApproval={Boolean(approvalRequest)}
                 />
 
                 {/* Main Content */}
@@ -1459,16 +1488,6 @@ function App() {
                             <span className="text-[var(--color-text-muted)]">/</span>
                             <span className="text-[var(--color-text-primary)]">{activeConversation?.title || 'Select a conversation'}</span>
                         </div>
-                        <button
-                            onClick={() => setShowSettings(true)}
-                            className="text-[11px] px-2 py-1 rounded border border-[var(--color-border)] bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-                            title="Settings (Ctrl+K)"
-                        >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                        </button>
 
                     </header>
 
@@ -1555,10 +1574,6 @@ function App() {
                                     <div className="flex items-center justify-between">
                                         {/* Model Selector */}
                                         <div className="flex items-center gap-2">
-                                            <ModelSelector
-                                                model={model}
-                                                onModelChange={setModel}
-                                            />
                                             <input
                                                 ref={fileInputRef}
                                                 type="file"
@@ -1575,6 +1590,10 @@ function App() {
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                                 </svg>
                                             </button>
+                                            <ModelSelector
+                                                model={model}
+                                                onModelChange={setModel}
+                                            />
                                         </div>
 
                                         {/* Send/Stop Button */}
@@ -1616,7 +1635,11 @@ function App() {
             <Suspense fallback={null}>
                 <SettingsPanel
                     visible={showSettings}
-                    onClose={() => setShowSettings(false)}
+                    onClose={() => {
+                        setShowSettings(false)
+                        setSettingsTab(undefined)
+                    }}
+                    initialTab={settingsTab}
                     yoloMode={yoloMode}
                     onYoloModeChange={handleToggleYolo}
                     cliOptions={cliOptions}
