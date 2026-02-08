@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 // Shared type definitions for the Codex UI application
-// These types are used by src/tauri-api.ts and components
+// These types are used by the API layer and components
 
 type ModelMode = 'planning' | 'fast'
 type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'

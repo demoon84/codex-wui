@@ -1,0 +1,11 @@
+{
+  "outputDir": "/Users/demoon/Documents/project/codex-wui/output/playwright",
+  "browser": {
+    "launchOptions": {
+      "headless": true
+    },
+    "initScript": [
+      "/Users/demoon/Documents/project/codex-wui/scripts/playwright/mock-tauri-init.js"
+    ]
+  }
+}

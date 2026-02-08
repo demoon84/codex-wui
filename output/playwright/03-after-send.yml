@@ -1,0 +1,88 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]: Codex UI
+    - generic [ref=e7]:
+      - generic [ref=e8]: Mock User
+      - button "Logout" [ref=e9] [cursor=pointer]
+  - generic [ref=e10]:
+    - complementary [ref=e11]:
+      - generic [ref=e12]:
+        - generic [ref=e13]:
+          - generic [ref=e14]: Workspaces
+          - button "Open Workspace" [ref=e15] [cursor=pointer]:
+            - img [ref=e16]
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - button [ref=e21] [cursor=pointer]:
+              - img [ref=e22]
+            - button "Default" [ref=e24] [cursor=pointer]
+            - button "New conversation" [ref=e25] [cursor=pointer]:
+              - img [ref=e26]
+          - button "Playwright smoke prompt" [ref=e29] [cursor=pointer]:
+            - generic [ref=e30]: Playwright smoke prompt
+      - button [ref=e32] [cursor=pointer]:
+        - img [ref=e33]
+    - main [ref=e35]:
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - generic [ref=e38]: Default
+          - generic [ref=e39]: /
+          - generic [ref=e40]: Playwright smoke prompt
+        - button "CLI" [ref=e41] [cursor=pointer]
+      - generic [ref=e42]:
+        - generic [ref=e44]:
+          - generic [ref=e46]:
+            - button "Thinking 1초" [ref=e48] [cursor=pointer]:
+              - img [ref=e49]
+              - generic [ref=e51]:
+                - text: Thinking
+                - generic [ref=e52]: 1초
+            - paragraph [ref=e109]: "Mock response: Playwright smoke prompt"
+          - generic [ref=e58]: Playwright smoke prompt
+          - generic [ref=e60]:
+            - button "Thinking 1초" [ref=e62] [cursor=pointer]:
+              - img [ref=e63]
+              - generic [ref=e65]:
+                - text: Thinking
+                - generic [ref=e66]: 1초
+            - paragraph [ref=e110]: "Mock response: Playwright smoke prompt"
+          - generic [ref=e113]: Playwright smoke prompt
+          - generic [ref=e115]:
+            - button "Thinking 1초" [ref=e117] [cursor=pointer]:
+              - img [ref=e118]
+              - generic [ref=e120]:
+                - text: Thinking
+                - generic [ref=e121]: 1초
+            - paragraph [ref=e124]: "Mock response: Playwright smoke prompt"
+        - generic [ref=e72]:
+          - textbox "무엇이든 말해보세요" [active] [ref=e73]
+          - generic [ref=e74]:
+            - button "GPT-5.3 Codex" [ref=e78] [cursor=pointer]:
+              - img [ref=e79]
+              - generic [ref=e81]: GPT-5.3 Codex
+            - button [disabled] [ref=e82]:
+              - img [ref=e83]
+  - generic [ref=e85]:
+    - generic [ref=e86]:
+      - button "Light" [ref=e88] [cursor=pointer]:
+        - img [ref=e89]
+        - generic [ref=e91]: Light
+        - img [ref=e92]
+      - generic [ref=e94]:
+        - img [ref=e95]
+        - generic [ref=e97]: ~
+    - generic [ref=e98]:
+      - button "KO" [ref=e99] [cursor=pointer]:
+        - img [ref=e100]
+        - generic [ref=e102]: KO
+      - button "permission" [ref=e103] [cursor=pointer]:
+        - generic [ref=e105]: permission
+      - generic [ref=e106]:
+        - generic [ref=e107]: stream
+        - combobox "stream" [ref=e108]:
+          - option "8ms"
+          - option "12ms"
+          - option "18ms" [selected]
+          - option "24ms"
+          - option "36ms"
+          - option "60ms"

@@ -5,6 +5,11 @@ export default defineConfig({
     plugins: [
         react(),
     ],
+    base: './',
+    server: {
+        port: 5173,
+        strictPort: true,
+    },
     build: {
         rollupOptions: {
             input: {
@@ -19,10 +24,6 @@ export default defineConfig({
                         'react-markdown',
                         'remark-gfm',
                         'rehype-highlight',
-                    ],
-                    // Tauri bridge
-                    'vendor-tauri': [
-                        '@tauri-apps/api',
                     ],
                 },
             },

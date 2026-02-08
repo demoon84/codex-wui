@@ -1,0 +1,7 @@
+- generic [ref=e3]:
+  - generic [ref=e5]: Codex UI
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - heading "Codex UI" [level=1] [ref=e8]
+      - paragraph [ref=e9]: Codex 로그인
+    - button "브라우저로 로그인" [ref=e11] [cursor=pointer]

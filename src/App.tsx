@@ -527,7 +527,7 @@ function App() {
 
     // Setup event listeners (only once)
     useEffect(() => {
-        const unlisteners: Array<Promise<() => void>> = []
+        const unlisteners: Array<() => void> = []
 
         unlisteners.push(codexApi.onAcpReady((ready: boolean) => {
             console.log('ACP Ready:', ready)
@@ -753,7 +753,7 @@ function App() {
 
         // Cleanup: unlisten all events on unmount
         return () => {
-            unlisteners.forEach(p => p.then(fn => fn()))
+            unlisteners.forEach(fn => fn())
         }
     }, [enqueueStreamingChunk, flushPendingStreamQueue, getConversationStream, resetConversationStream, setConversationLoading, t])
 
@@ -1361,7 +1361,7 @@ function App() {
         return (
             <div className="flex flex-col h-screen w-full bg-[var(--color-bg-deep)] overflow-hidden">
                 {/* Title Bar */}
-                <div className="drag-region h-9 bg-[var(--color-bg-sidebar)] border-b border-[var(--color-border)] flex items-center justify-center flex-shrink-0">
+                <div className="drag-region h-9 bg-[var(--color-bg-sidebar)] border-b border-[var(--color-border)] flex items-center justify-center pl-20 flex-shrink-0">
                     <span className="text-xs text-[var(--color-text-muted)]">Codex UI</span>
                 </div>
 
@@ -1390,8 +1390,8 @@ function App() {
 
     return (
         <div className="flex flex-col h-screen w-full bg-[var(--color-bg-deep)] overflow-hidden">
-            {/* Title Bar - with padding for Windows controls */}
-            <div className="drag-region h-9 bg-[var(--color-bg-sidebar)] border-b border-[var(--color-border)] flex items-center px-4 pr-36 flex-shrink-0 relative">
+            {/* Title Bar */}
+            <div className="drag-region h-9 bg-[var(--color-bg-sidebar)] border-b border-[var(--color-border)] flex items-center pl-20 pr-4 flex-shrink-0 relative">
                 {/* Centered title using absolute positioning */}
                 <span className="absolute left-1/2 -translate-x-1/2 text-xs text-[var(--color-text-muted)]">Codex UI</span>
 

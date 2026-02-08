@@ -1,0 +1,62 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]: Codex UI
+    - generic [ref=e13]:
+      - generic [ref=e14]: Mock User
+      - button "Logout" [ref=e15] [cursor=pointer]
+  - generic [ref=e6]:
+    - complementary [ref=e16]:
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]: Workspaces
+          - button "Open Workspace" [ref=e20] [cursor=pointer]:
+            - img [ref=e21]
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - button [ref=e71] [cursor=pointer]:
+              - img [ref=e72]
+            - button "Default" [ref=e74] [cursor=pointer]
+            - button "New conversation" [ref=e75] [cursor=pointer]:
+              - img [ref=e76]
+          - button "Playwright smoke prompt" [ref=e79] [cursor=pointer]:
+            - generic [ref=e80]: Playwright smoke prompt
+      - button [ref=e24] [cursor=pointer]:
+        - img [ref=e25]
+    - main [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - generic [ref=e30]: Default
+          - generic [ref=e31]: /
+          - generic [ref=e32]: Playwright smoke prompt
+        - button "CLI" [ref=e33] [cursor=pointer]
+      - generic [ref=e34]:
+        - generic [ref=e83]:
+          - button "Thinking 0초" [ref=e85] [cursor=pointer]:
+            - img [ref=e86]
+            - generic [ref=e88]:
+              - text: Thinking
+              - generic [ref=e89]: 0초
+          - paragraph [ref=e92]: "Mock response: Playwright smoke prompt"
+        - generic [ref=e38]:
+          - textbox "무엇이든 말해보세요" [active] [ref=e93]
+          - generic [ref=e40]:
+            - button "GPT-5.3 Codex" [ref=e44] [cursor=pointer]:
+              - img [ref=e45]
+              - generic [ref=e47]: GPT-5.3 Codex
+            - button [disabled] [ref=e48]:
+              - img [ref=e49]
+  - generic [ref=e51]:
+    - generic [ref=e52]:
+      - button "Light" [ref=e54] [cursor=pointer]:
+        - img [ref=e55]
+        - generic [ref=e57]: Light
+        - img [ref=e58]
+      - generic [ref=e95]:
+        - img [ref=e96]
+        - generic [ref=e98]: ~
+    - generic [ref=e60]:
+      - button "KO" [ref=e61] [cursor=pointer]:
+        - img [ref=e62]
+        - generic [ref=e64]: KO
+      - button "permission" [ref=e65] [cursor=pointer]:
+        - generic [ref=e67]: permission

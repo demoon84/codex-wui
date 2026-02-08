@@ -1,0 +1,56 @@
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]: Codex UI
+    - generic [ref=e7]:
+      - generic [ref=e8]: Mock User
+      - button "Logout" [ref=e9] [cursor=pointer]
+  - generic [ref=e10]:
+    - complementary [ref=e11]:
+      - generic [ref=e13]:
+        - generic [ref=e14]: Workspaces
+        - button "Open Workspace" [ref=e15] [cursor=pointer]:
+          - img [ref=e16]
+      - button [ref=e19] [cursor=pointer]:
+        - img [ref=e20]
+    - main [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]: No workspace
+          - generic [ref=e26]: /
+          - generic [ref=e27]: Select a conversation
+        - button "CLI" [ref=e28] [cursor=pointer]
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - generic:
+            - generic:
+              - generic:
+                - img
+              - paragraph: Codex와 대화를 시작하세요
+        - generic [ref=e33]:
+          - textbox "워크스페이스를 열어 시작하세요..." [ref=e34]
+          - generic [ref=e35]:
+            - button "GPT-5.3 Codex" [ref=e39] [cursor=pointer]:
+              - img [ref=e40]
+              - generic [ref=e42]: GPT-5.3 Codex
+            - button [disabled] [ref=e43]:
+              - img [ref=e44]
+  - generic [ref=e46]:
+    - button "Light" [ref=e49] [cursor=pointer]:
+      - img [ref=e50]
+      - generic [ref=e52]: Light
+      - img [ref=e53]
+    - generic [ref=e55]:
+      - button "KO" [ref=e56] [cursor=pointer]:
+        - img [ref=e57]
+        - generic [ref=e59]: KO
+      - button "permission" [ref=e60] [cursor=pointer]:
+        - generic [ref=e62]: permission
+      - generic [ref=e63]:
+        - generic [ref=e64]: stream
+        - combobox "stream" [ref=e65]:
+          - option "8ms"
+          - option "12ms"
+          - option "18ms" [selected]
+          - option "24ms"
+          - option "36ms"
+          - option "60ms"

@@ -2,26 +2,26 @@
   "name": "codex-wui",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
+  "main": "dist-electron/main.js",
   "scripts": {
     "compile": "tsc -b",
     "tsc": "tsc --noEmit",
     "dev:web": "vite",
     "build:web": "tsc --noEmit && vite build",
-    "dev:tauri:web": "npm run dev:web",
-    "build:tauri:web": "npm run build:web",
-    "dev": "tauri dev",
-    "build": "tauri build",
+    "dev:electron": "tsc -p tsconfig.electron.json && electron .",
+    "dev": "concurrently -k \"vite\" \"wait-on http://localhost:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 npm run dev:electron\"",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "npm run build:web && npm run build:electron",
+    "package": "npm run build && electron-builder",
     "preview": "vite preview",
     "smoke:playwright:typed": "bash ./scripts/playwright-smoke-typed.sh",
     "monitor:dev": "bash ./scripts/dev-watchdog.sh",
     "monitor:dev:full": "bash ./scripts/dev-watchdog.sh --full",
     "test": "vitest run --passWithNoTests",
-    "test:quiet": "vitest run --passWithNoTests --silent --reporter=dot",
-    "tauri": "tauri"
+    "test:quiet": "vitest run --passWithNoTests --silent --reporter=dot"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.0.0",
+    "better-sqlite3": "^11.9.1",
     "highlight.js": "^11.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -31,15 +31,52 @@
     "vscode-icons-js": "^11.3.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.0.0",
+    "@electron/rebuild": "^3.7.2",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",
     "typescript": "^5.9.3",
     "vite": "^5.4.21",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.codex.ui",
+    "productName": "Codex UI",
+    "directories": {
+      "output": "output"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "resources/icon.icns",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "resources/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "icon": "resources",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
   }
 }
