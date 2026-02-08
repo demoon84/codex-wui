@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
 
 type SandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access'
 type ApprovalPolicy = 'untrusted' | 'on-failure' | 'on-request' | 'never'
@@ -33,11 +33,11 @@ interface CliControlPanelProps {
     onSavePreset: (name: string) => void
     onDeletePreset: (id: string) => void
     onSelectPreset: (id: string) => void
-    onRunQuickCommand: (command: 'version' | 'exec-help' | 'review-help' | 'mcp-help' | 'features') => void
+    onRunQuickCommand: (command: 'version' | 'exec-help' | 'review-help' | 'review-uncommitted' | 'mcp-help' | 'mcp-list' | 'cloud-help' | 'cloud-list' | 'app-server-help' | 'app-server-schema' | 'git-status' | 'git-worktree-list' | 'features') => void
     onRunCustomCommand: (raw: string) => void
 }
 
-export function CliControlPanel({
+export const CliControlPanel = memo(function CliControlPanel({
     visible,
     yoloMode,
     options,
@@ -191,7 +191,15 @@ export function CliControlPanel({
                     <button onClick={() => onRunQuickCommand('version')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex --version</button>
                     <button onClick={() => onRunQuickCommand('exec-help')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex exec --help</button>
                     <button onClick={() => onRunQuickCommand('review-help')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex review --help</button>
+                    <button onClick={() => onRunQuickCommand('review-uncommitted')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex review --uncommitted</button>
                     <button onClick={() => onRunQuickCommand('mcp-help')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex mcp --help</button>
+                    <button onClick={() => onRunQuickCommand('mcp-list')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex mcp list</button>
+                    <button onClick={() => onRunQuickCommand('cloud-help')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex cloud --help</button>
+                    <button onClick={() => onRunQuickCommand('cloud-list')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex cloud list</button>
+                    <button onClick={() => onRunQuickCommand('app-server-help')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex app-server --help</button>
+                    <button onClick={() => onRunQuickCommand('app-server-schema')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex app-server schema</button>
+                    <button onClick={() => onRunQuickCommand('git-status')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">git status --short</button>
+                    <button onClick={() => onRunQuickCommand('git-worktree-list')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">git worktree list</button>
                     <button onClick={() => onRunQuickCommand('features')} className="px-2 py-1 rounded border border-[var(--color-border)] text-[11px]">codex features</button>
                 </div>
 
@@ -213,4 +221,4 @@ export function CliControlPanel({
             </div>
         </div>
     )
-}
+})

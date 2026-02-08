@@ -10,6 +10,22 @@ export default defineConfig({
             input: {
                 main: './index.html',
             },
+            output: {
+                manualChunks: {
+                    // React core
+                    'vendor-react': ['react', 'react-dom'],
+                    // Markdown rendering pipeline
+                    'vendor-markdown': [
+                        'react-markdown',
+                        'remark-gfm',
+                        'rehype-highlight',
+                    ],
+                    // Tauri bridge
+                    'vendor-tauri': [
+                        '@tauri-apps/api',
+                    ],
+                },
+            },
         },
     },
 })

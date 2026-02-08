@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, memo } from 'react'
+import { useI18n } from '../i18n'
 
 interface ApprovalDialogProps {
     visible: boolean
@@ -8,8 +9,9 @@ interface ApprovalDialogProps {
     onReject?: () => void
 }
 
-export function ApprovalDialog({ visible, title, description, onApprove, onReject }: ApprovalDialogProps) {
+export const ApprovalDialog = memo(function ApprovalDialog({ visible, title, description, onApprove, onReject }: ApprovalDialogProps) {
     const [approving, setApproving] = useState(false)
+    const { t } = useI18n()
 
     if (!visible) return null
 
@@ -22,7 +24,7 @@ export function ApprovalDialog({ visible, title, description, onApprove, onRejec
         <div className="flex items-center gap-3 p-3 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg my-3">
             <div className="flex-1">
                 <div className="text-sm font-medium text-[var(--color-text-primary)]">
-                    {title || '계획을 진행할까요?'}
+                    {title || t('approvalTitle')}
                 </div>
                 {description && (
                     <div className="text-xs text-[var(--color-text-muted)] mt-1">
@@ -37,7 +39,7 @@ export function ApprovalDialog({ visible, title, description, onApprove, onRejec
                         disabled={approving}
                         className="px-3 py-1.5 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-bg-hover)] hover:bg-[var(--color-border)] rounded transition-colors disabled:opacity-50"
                     >
-                        거절
+                        {t('approvalReject')}
                     </button>
                 )}
                 <button
@@ -51,13 +53,13 @@ export function ApprovalDialog({ visible, title, description, onApprove, onRejec
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                             </svg>
-                            진행 중...
+                            {t('approvalApproving')}
                         </>
                     ) : (
-                        '승인'
+                        t('approvalApprove')
                     )}
                 </button>
             </div>
         </div>
     )
-}
+})

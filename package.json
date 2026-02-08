@@ -1,90 +1,45 @@
 {
-  "name": "codex-ui",
+  "name": "codex-wui",
   "private": true,
-  "version": "1.0.0",
-  "description": "Codex CLI GUI Application",
-  "author": "Codex UI Team",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "compile": "tsc -b",
+    "tsc": "tsc --noEmit",
     "dev:web": "vite",
+    "build:web": "tsc --noEmit && vite build",
+    "dev:tauri:web": "npm run dev:web",
+    "build:tauri:web": "npm run build:web",
     "dev": "tauri dev",
-    "build:web": "tsc && vite build",
     "build": "tauri build",
-    "build:electron": "tsc && vite build && electron-builder",
     "preview": "vite preview",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "dev:electron": "vite",
-    "dev:tauri:web": "vite --config vite.tauri.config.ts",
-    "build:tauri:web": "tsc && vite build --config vite.tauri.config.ts"
+    "smoke:playwright:typed": "bash ./scripts/playwright-smoke-typed.sh",
+    "monitor:dev": "bash ./scripts/dev-watchdog.sh",
+    "monitor:dev:full": "bash ./scripts/dev-watchdog.sh --full",
+    "test": "vitest run --passWithNoTests",
+    "test:quiet": "vitest run --passWithNoTests --silent --reporter=dot",
+    "tauri": "tauri"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^0.14.0",
-    "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.1",
-    "@google/generative-ai": "^0.24.1",
-    "@mui/icons-material": "^7.3.7",
-    "@mui/material": "^7.3.7",
-    "@tauri-apps/api": "^2.8.0",
-    "file-icon-vectors": "^1.0.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-markdown": "^10.1.0",
+    "@tauri-apps/api": "^2.0.0",
+    "highlight.js": "^11.11.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.1.0",
+    "rehype-highlight": "^7.0.2",
     "remark-gfm": "^4.0.1",
-    "sql.js": "^1.13.0",
-    "vscode-icons-js": "^11.6.1",
-    "xterm": "^5.3.0",
-    "xterm-addon-fit": "^0.8.0"
+    "vscode-icons-js": "^11.3.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.10.0",
-    "@types/react": "^18.2.64",
-    "@types/react-dom": "^18.2.21",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.23",
-    "electron": "^30.0.1",
-    "electron-builder": "^24.13.3",
+    "@tauri-apps/cli": "^2.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
-    "tailwindcss": "3.4",
-    "typescript": "^5.2.2",
-    "vite": "^5.1.6",
-    "vite-plugin-electron": "^0.28.6",
-    "vite-plugin-electron-renderer": "^0.14.5"
-  },
-  "main": "dist-electron/main.js",
-  "build": {
-    "appId": "com.codex.ui",
-    "productName": "Codex UI",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist/**/*",
-      "dist-electron/**/*",
-      "public/**/*"
-    ],
-    "mac": {
-      "icon": "public/icon.png",
-      "target": [
-        "dmg"
-      ]
-    },
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Codex UI"
-    }
+    "tailwindcss": "^3.4.18",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^1.6.0"
   }
 }

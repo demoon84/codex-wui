@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
+import { useI18n } from '../i18n'
 
 export interface ModelConfig {
     id: string
@@ -7,15 +8,14 @@ export interface ModelConfig {
     isThinking: boolean
 }
 
-// Available Codex CLI models with Korean descriptions
+// Available Codex CLI models (descriptions come from i18n)
 export const AVAILABLE_MODELS: ModelConfig[] = [
-    { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex', description: '최신 최고 성능 코딩 모델, 복잡한 에이전트 작업에 최적화', isThinking: false },
-    { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex', description: '고급 코딩 모델, 엔지니어링 작업에 적합', isThinking: false },
-    { id: 'gpt-5.1-codex-max', name: 'GPT-5.1 Codex Max', description: '장기 에이전트 코딩 작업에 최적화', isThinking: false },
-    { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini', description: '비용 효율적인 소형 코딩 모델', isThinking: false },
-    { id: 'o4-mini', name: 'o4-mini', description: '기본 모델, 빠른 응답', isThinking: false },
-    { id: 'gpt-4.1', name: 'GPT-4.1', description: '가장 스마트한 비추론 모델', isThinking: false },
-    { id: 'gpt-4o', name: 'GPT-4o', description: '멀티모달 작업에 적합', isThinking: false },
+    { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex', description: 'model.gpt-5.3-codex', isThinking: false },
+    { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex', description: 'model.gpt-5.2-codex', isThinking: false },
+    { id: 'gpt-5.1-codex-max', name: 'GPT-5.1 Codex Max', description: 'model.gpt-5.1-codex-max', isThinking: false },
+    { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini', description: 'model.gpt-5.1-codex-mini', isThinking: false },
+    { id: 'o4-mini', name: 'o4-mini', description: 'model.o4-mini', isThinking: false },
+    { id: 'gpt-4.1', name: 'GPT-4.1', description: 'model.gpt-4.1', isThinking: false },
 ]
 
 interface ModelSelectorProps {
@@ -23,7 +23,8 @@ interface ModelSelectorProps {
     onModelChange: (model: ModelConfig) => void
 }
 
-export function ModelSelector({ model, onModelChange }: ModelSelectorProps) {
+export const ModelSelector = memo(function ModelSelector({ model, onModelChange }: ModelSelectorProps) {
+    const { t } = useI18n()
     const [showModelDropdown, setShowModelDropdown] = useState(false)
     const modelRef = useRef<HTMLDivElement>(null)
 
@@ -55,7 +56,7 @@ export function ModelSelector({ model, onModelChange }: ModelSelectorProps) {
                 {showModelDropdown && (
                     <div className="absolute bottom-full left-0 mb-1 bg-[var(--color-bg-card)] border border-[var(--color-border)] rounded-lg shadow-xl py-2 z-50 w-[320px]">
                         <div className="px-3 py-1 text-[11px] text-[var(--color-text-muted)] border-b border-[var(--color-border-subtle)] mb-1">
-                            AI 모델 선택
+                            {t('selectModel')}
                         </div>
                         {AVAILABLE_MODELS.map(m => (
                             <button
@@ -68,11 +69,11 @@ export function ModelSelector({ model, onModelChange }: ModelSelectorProps) {
                                         {m.name}
                                     </span>
                                     {m.isThinking && (
-                                        <span className="text-[9px] px-1.5 py-0.5 bg-[var(--color-primary)]/20 text-[var(--color-primary)] rounded">추론</span>
+                                        <span className="text-[9px] px-1.5 py-0.5 bg-[var(--color-primary)]/20 text-[var(--color-primary)] rounded">{t('thinkingBadge')}</span>
                                     )}
                                 </div>
                                 <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-                                    {m.description}
+                                    {t(m.description as any)}
                                 </div>
                             </button>
                         ))}
@@ -81,4 +82,4 @@ export function ModelSelector({ model, onModelChange }: ModelSelectorProps) {
             </div>
         </div>
     )
-}
+})

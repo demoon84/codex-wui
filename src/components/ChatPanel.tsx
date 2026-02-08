@@ -1,8 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeHighlight from 'rehype-highlight'
+import 'highlight.js/styles/github-dark.css'
 import { FileIcon } from './FileIcon'
 import { ApprovalDialog } from './ApprovalDialog'
+import { useI18n } from '../i18n'
 
 
 interface Message {
@@ -42,7 +45,7 @@ interface BackgroundCommand {
     command: string
     cwd: string
     output: string
-    status: 'running' | 'done'
+    status: 'running' | 'done' | 'error'
     exitCode?: number
 }
 
@@ -66,6 +69,8 @@ interface ChatPanelProps {
     // Approval request
     approvalRequest?: { requestId: string; title: string; description: string } | null
     onApprovalResponse?: (requestId: string, approved: boolean) => void
+    // Teams integration
+    onSendToTeams?: (content: string) => void
 }
 
 // Check if text looks like a file path
@@ -87,7 +92,7 @@ function CopyButton({ content }: { content: string }) {
         <button
             onClick={handleCopy}
             className="hover:text-[var(--color-text-primary)] transition-colors"
-            title={copied ? '복사됨!' : '복사'}
+            title={copied ? 'Copied!' : 'Copy'}
         >
             {copied ? (
                 <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -147,7 +152,7 @@ function ThinkingSection({ thinking, duration, isStreaming = false, startTime }:
                     {isStreaming && (
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] animate-pulse" />
                     )}
-                    생각중
+                    Thinking
                     <span className="text-[var(--color-text-muted)]">
                         {minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`}
                     </span>
@@ -171,32 +176,32 @@ function parseToolCall(title: string): { type: 'search' | 'file' | 'command' | '
     // Search operations
     if (lowerTitle.includes('search') || lowerTitle.includes('grep') || lowerTitle.includes('find')) {
         const match = title.match(/(?:search|grep|find)[^\w]*(.+)/i)
-        return { type: 'search', icon: '🔍', label: '검색', detail: match?.[1] || title }
+        return { type: 'search', icon: '🔍', label: 'Search', detail: match?.[1] || title }
     }
 
     // File viewing/reading
     if (lowerTitle.includes('view') || lowerTitle.includes('read') || lowerTitle.includes('reading')) {
         const filename = title.replace(/^(view|read|reading)[_\s]*(file)?[\s:_]*/i, '').split(/[/\\]/).pop() || title
-        return { type: 'file', icon: '📄', label: '파일 읽기', detail: filename }
+        return { type: 'file', icon: '📄', label: 'Read file', detail: filename }
     }
 
     // File editing/writing
     if (lowerTitle.includes('edit') || lowerTitle.includes('write') || lowerTitle.includes('replace') || lowerTitle.includes('modify')) {
         const filename = title.replace(/^(edit|write|replace|modify)[_\s]*(file)?[\s:_]*/i, '').split(/[/\\]/).pop() || title
-        return { type: 'edit', icon: '✏️', label: '수정', detail: filename }
+        return { type: 'edit', icon: '✏️', label: 'Edit', detail: filename }
     }
 
     // Command execution
     if (lowerTitle.includes('command') || lowerTitle.includes('terminal') || lowerTitle.includes('run') || lowerTitle.includes('npm') || lowerTitle.includes('spawn')) {
-        return { type: 'command', icon: '⚡', label: '명령 실행', detail: title }
+        return { type: 'command', icon: '⚡', label: 'Run command', detail: title }
     }
 
     // Analysis/Review
     if (lowerTitle.includes('analyz') || lowerTitle.includes('review') || lowerTitle.includes('check') || lowerTitle.includes('inspect')) {
-        return { type: 'analyze', icon: '🔬', label: '분석', detail: title }
+        return { type: 'analyze', icon: '🔬', label: 'Analyze', detail: title }
     }
 
-    return { type: 'other', icon: '⚙️', label: '작업', detail: title }
+    return { type: 'other', icon: '⚙️', label: 'Task', detail: title }
 }
 
 // Antigravity-style Progress Updates Section with smart tool detection
@@ -426,9 +431,10 @@ function SearchLogSection({ searches }: { searches: { query: string; results: nu
 // Markdown renderer component
 function MarkdownContent({ content }: { content: string }) {
     return (
-        <div className="prose prose-sm max-w-none text-[13px] text-[var(--color-text-primary)]">
+        <div className="prose prose-sm max-w-none text-[13px] text-[var(--color-text-primary)] leading-relaxed break-words">
             <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
                 components={{
                     // Code blocks and inline code
                     code({ className, children, ...props }: any) {
@@ -465,7 +471,7 @@ function MarkdownContent({ content }: { content: string }) {
                                     </div>
                                 )}
                                 <pre className="p-3 overflow-x-auto m-0">
-                                    <code className="text-[12px] text-[var(--color-text-primary)] font-mono">{content}</code>
+                                    <code className={`text-[12px] font-mono ${className || ''}`}>{content}</code>
                                 </pre>
                             </div>
                         )
@@ -543,7 +549,7 @@ function MarkdownContent({ content }: { content: string }) {
     )
 }
 
-export function ChatPanel({
+export const ChatPanel = memo(function ChatPanel({
     messages,
     streamingContent,
     streamingThinking,
@@ -559,8 +565,10 @@ export function ChatPanel({
     searchLogs = [],
     onApprove,
     approvalRequest,
-    onApprovalResponse
+    onApprovalResponse,
+    onSendToTeams
 }: ChatPanelProps) {
+    const { t } = useI18n()
     const scrollRef = useRef<HTMLDivElement>(null)
     const bottomRef = useRef<HTMLDivElement>(null)
     const isUserScrolling = useRef(false)
@@ -604,7 +612,7 @@ export function ChatPanel({
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                         </div>
-                        <p className="text-[12px]">Codex와 대화를 시작하세요</p>
+                        <p className="text-[12px]">{t('startConversation')}</p>
                     </div>
                 </div>
             ) : (
@@ -614,7 +622,7 @@ export function ChatPanel({
                         <div key={message.id} className="mb-4">
                             {message.role === 'user' ? (
                                 <div className="bg-[var(--color-bg-card)] rounded-lg px-4 py-3 text-[12px] text-[var(--color-text-primary)] flex items-center justify-between gap-3">
-                                    <span>{message.content}</span>
+                                    <span className="whitespace-pre-wrap break-words flex-1">{message.content}</span>
                                     {/* Show spinner if this is the last user message and we're loading (hide when thinking/streaming starts) */}
                                     {isLoading && message.id === messages.filter(m => m.role === 'user').slice(-1)[0]?.id && !streamingContent && !streamingThinking && (
                                         <svg className="w-4 h-4 animate-spin text-[var(--color-primary)] flex-shrink-0" fill="none" viewBox="0 0 24 24">
@@ -637,9 +645,20 @@ export function ChatPanel({
                                     {message.needsApproval && onApprove && (
                                         <ApprovalDialog
                                             visible={true}
-                                            title="이 계획을 진행할까요?"
+                                            title={t('approvalTitle')}
                                             onApprove={() => onApprove(message.id)}
                                         />
+                                    )}
+                                    {onSendToTeams && message.content && (
+                                        <div className="flex justify-end mt-1">
+                                            <button
+                                                onClick={() => onSendToTeams(message.content)}
+                                                className="text-[10px] px-2 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:border-[var(--color-text-muted)] transition-colors"
+                                                title="Send this response to MS Teams"
+                                            >
+                                                📤 Teams
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -670,6 +689,10 @@ export function ChatPanel({
                                             ) : tc.status === 'done' || tc.status === 'completed' ? (
                                                 <svg className="w-3 h-3 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            ) : tc.status === 'error' || tc.status === 'failed' ? (
+                                                <svg className="w-3 h-3 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
                                             ) : (
                                                 <svg className="w-3 h-3 text-yellow-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -713,13 +736,13 @@ export function ChatPanel({
                                         onClick={() => onApprovalResponse?.(approvalRequest.requestId, false)}
                                         className="px-4 py-1.5 text-[12px] rounded bg-[var(--color-bg-card)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] border border-[var(--color-border)] transition-colors"
                                     >
-                                        거절
+                                        {t('approvalReject')}
                                     </button>
                                     <button
                                         onClick={() => onApprovalResponse?.(approvalRequest.requestId, true)}
                                         className="px-4 py-1.5 text-[12px] rounded bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity"
                                     >
-                                        승인
+                                        {t('approvalApprove')}
                                     </button>
                                 </div>
                             </div>
@@ -734,7 +757,7 @@ export function ChatPanel({
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                 </svg>
-                                <span className="text-[12px] font-medium text-[var(--color-primary)]">실행 중인 터미널</span>
+                                <span className="text-[12px] font-medium text-[var(--color-primary)]">{t('runningTerminal')}</span>
                             </div>
                             {backgroundCommands.filter(cmd => cmd.status === 'running').map((cmd, idx) => (
                                 <div key={cmd.id || idx} className="border-b border-[var(--color-border)] last:border-b-0">
@@ -764,7 +787,7 @@ export function ChatPanel({
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                     </svg>
-                                    <span className="text-[11px] text-[var(--color-text-secondary)]">터미널 출력</span>
+                                    <span className="text-[11px] text-[var(--color-text-secondary)]">{t('terminalOutput')}</span>
                                 </div>
                                 <pre className="p-3 text-[10px] font-mono text-[var(--color-text-primary)] max-h-[200px] overflow-y-auto whitespace-pre-wrap bg-[var(--color-bg-input)]">
                                     {terminalOutput.output}
@@ -818,7 +841,7 @@ export function ChatPanel({
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                     </svg>
-                                    <span>생성중...</span>
+                                    <span>{t('generating')}</span>
                                 </div>
                             )}
 
@@ -852,4 +875,4 @@ export function ChatPanel({
             )}
         </div>
     )
-}
+})

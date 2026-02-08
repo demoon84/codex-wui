@@ -1,3 +1,5 @@
+import { updateTitleBarOverlay } from './tauri-api'
+
 // Official VS Code theme color values
 export interface Theme {
     id: string
@@ -91,9 +93,7 @@ export function applyTheme(theme: Theme): void {
     localStorage.setItem('selected-theme', theme.id)
 
     // Update Windows titleBarOverlay color
-    if (window.codexApi?.updateTitleBarOverlay) {
-        window.codexApi.updateTitleBarOverlay(theme.colors.bgSidebar, theme.colors.textSecondary)
-    }
+    updateTitleBarOverlay(theme.colors.bgSidebar, theme.colors.textSecondary).catch(() => { })
 }
 
 // Get saved theme or default

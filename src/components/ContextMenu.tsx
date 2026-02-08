@@ -1,5 +1,7 @@
-﻿import { useState, useEffect, useRef } from 'react'
+﻿import { useState, useEffect, useRef, memo } from 'react'
+import { searchFiles as tauriSearchFiles } from '../tauri-api'
 import { FileIcon } from './FileIcon'
+import { useI18n } from '../i18n'
 
 interface FileSearchResult {
     name: string
@@ -17,7 +19,7 @@ interface ContextMenuProps {
     onClose: () => void
 }
 
-export function ContextMenu({
+export const ContextMenu = memo(function ContextMenu({
     visible,
     query,
     workspacePath,
@@ -25,6 +27,7 @@ export function ContextMenu({
     onSelect,
     onClose
 }: ContextMenuProps) {
+    const { t } = useI18n()
     const [results, setResults] = useState<FileSearchResult[]>([])
     const [selectedIndex, setSelectedIndex] = useState(0)
     const [loading, setLoading] = useState(false)
@@ -40,7 +43,7 @@ export function ContextMenu({
         const searchFiles = async () => {
             setLoading(true)
             try {
-                const files = await window.codexApi?.searchFiles(workspacePath, query)
+                const files = await tauriSearchFiles(workspacePath, query)
                 setResults(files || [])
                 setSelectedIndex(0)
             } catch (error) {
@@ -139,7 +142,7 @@ export function ContextMenu({
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                         </svg>
-                        검색 중...
+                        {t('searching')}
                     </div>
                 ) : results.length === 0 ? (
                     <div className="px-3 py-4 text-center text-[11px] text-[var(--color-text-muted)]">
@@ -177,18 +180,18 @@ export function ContextMenu({
                 <div className="px-3 py-1.5 border-t border-[var(--color-border)] bg-[var(--color-bg-deep)] text-[10px] text-[var(--color-text-muted)]">
                     <span className="inline-flex items-center gap-1">
                         <kbd className="px-1 py-0.5 bg-[var(--color-bg-card)] rounded text-[var(--color-text-primary)]">↑↓</kbd>
-                        이동
+                        {t('navigate')}
                     </span>
                     <span className="inline-flex items-center gap-1 ml-3">
                         <kbd className="px-1 py-0.5 bg-[var(--color-bg-card)] rounded text-[var(--color-text-primary)]">Enter</kbd>
-                        선택
+                        {t('select')}
                     </span>
                     <span className="inline-flex items-center gap-1 ml-3">
                         <kbd className="px-1 py-0.5 bg-[var(--color-bg-card)] rounded text-[var(--color-text-primary)]">Esc</kbd>
-                        닫기
+                        {t('close')}
                     </span>
                 </div>
             )}
         </div>
     )
-}
+})
