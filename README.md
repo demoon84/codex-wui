@@ -4,7 +4,7 @@ Codex CLI GUI 애플리케이션 (Electron + React 기반 데스크톱 앱)
 
 ## 개요
 
-Codex UI는 OpenAI Codex CLI를 데스크톱 환경에서 사용할 수 있도록 만든 GUI입니다.
+Codex UI는 OpenAI Codex CLI를 window 데스크톱 환경에서 사용할 수 있도록 만든 GUI입니다.
 워크스페이스/대화 관리, 스트리밍 출력, 파일 검색(`@`), CLI 제어 패널, MCP 서버 관리, MS Teams 연동 기능을 제공합니다.
 
 ## 주요 기능
